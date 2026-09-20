@@ -1,0 +1,339 @@
+<div class="generator-page">
+
+  <div class="generator-card">
+
+    <div class="header">
+
+      <h1>
+        AI Video Generator
+      </h1>
+
+      <p>
+        Create realistic AI videos with
+        Agnes AI.
+      </p>
+
+    </div>
+
+    <!-- MODE TABS -->
+
+    <div class="mode-tabs">
+
+      <button
+        type="button"
+        [class.active]="mode === 'text'"
+        (click)="selectMode('text')"
+      >
+        Text → Video
+      </button>
+
+      <button
+        type="button"
+        [class.active]="mode === 'image'"
+        (click)="selectMode('image')"
+      >
+        Image → Video
+      </button>
+
+    </div>
+
+    <!-- PROMPT -->
+
+    <div class="field">
+
+      <label>
+        Video Prompt
+      </label>
+
+      <textarea
+        [(ngModel)]="prompt"
+        rows="5"
+        placeholder="Describe exactly what should happen in the video..."
+        [disabled]="loading"
+      ></textarea>
+
+      <div class="hint">
+        Example: A man slowly walks through
+        a rainy city street, natural body
+        movement, realistic physics, smooth
+        camera movement.
+      </div>
+
+    </div>
+
+    <!-- IMAGE INPUT -->
+
+    <div
+      class="image-section"
+      *ngIf="mode === 'image'"
+    >
+
+      <label>
+        Reference Image
+        <span class="optional">
+          — optional individually
+        </span>
+      </label>
+
+      <div class="source-info">
+        Use any one:
+        <b>Upload</b>,
+        <b>Ctrl + V</b>,
+        or
+        <b>Image URL</b>.
+      </div>
+
+      <!-- UPLOAD -->
+
+      <div class="upload-box">
+
+        <input
+          #imageInput
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp"
+          (change)="onImageSelected($event)"
+          hidden
+        />
+
+        <button
+          type="button"
+          class="upload-button"
+          (click)="imageInput.click()"
+          [disabled]="loading"
+        >
+          📁 Upload Image
+        </button>
+
+        <span class="paste-text">
+          or press
+          <strong>Ctrl + V</strong>
+          to paste an image
+        </span>
+
+      </div>
+
+      <!-- IMAGE PREVIEW -->
+
+      <div
+        class="image-preview"
+        *ngIf="imagePreview"
+      >
+
+        <img
+          [src]="imagePreview"
+          alt="Reference preview"
+        />
+
+        <div class="preview-info">
+
+          <span>
+            {{ imageFileName || 'Pasted image' }}
+          </span>
+
+          <button
+            type="button"
+            (click)="removeImage()"
+            [disabled]="loading"
+          >
+            Remove
+          </button>
+
+        </div>
+
+      </div>
+
+      <!-- URL -->
+
+      <div class="url-section">
+
+        <div class="or-line">
+          <span>OR</span>
+        </div>
+
+        <input
+          type="url"
+          [(ngModel)]="imageUrl"
+          (ngModelChange)="onImageUrlChange()"
+          placeholder="https://example.com/character.png"
+          [disabled]="loading || !!imageData"
+        />
+
+        <div class="hint">
+          Public <b>direct image link</b> daalein (URL .jpg / .png par khatam ho).
+          Upload ki hui image ko priority milti hai.
+        </div>
+
+        <div class="hint warning" *ngIf="urlWarning">
+          ⚠️ {{ urlWarning }}
+        </div>
+
+        <button
+          *ngIf="imageData"
+          type="button"
+          class="use-url-button"
+          (click)="clearImage()"
+          [disabled]="loading"
+        >
+          Clear uploaded image and use URL
+        </button>
+
+      </div>
+
+    </div>
+
+    <!-- QUALITY -->
+
+    <div class="field">
+
+      <label>
+        Quality
+      </label>
+
+      <select
+        [(ngModel)]="qualityMode"
+        [disabled]="loading"
+      >
+
+        <option value="high">
+          High Quality
+        </option>
+
+        <option value="standard">
+          Standard
+        </option>
+
+      </select>
+
+    </div>
+
+    <!-- ERROR -->
+
+    <div
+      class="error"
+      *ngIf="errorMessage"
+    >
+      {{ errorMessage }}
+
+      <div class="error-hint" *ngIf="errorHint">
+        {{ errorHint }}
+      </div>
+    </div>
+
+    <!-- GENERATE -->
+
+    <button
+      type="button"
+      class="generate-button"
+      (click)="generate()"
+      [disabled]="loading"
+    >
+
+      <span *ngIf="!loading">
+        Generate Video
+      </span>
+
+      <span *ngIf="loading">
+        Generating...
+      </span>
+
+    </button>
+
+    <!-- PROGRESS -->
+
+    <div
+      class="progress-section"
+      *ngIf="job"
+    >
+
+      <div class="progress-header">
+
+        <span>
+          {{ statusLabel }}
+        </span>
+
+        <strong>
+          {{ job.progress }}%
+        </strong>
+
+      </div>
+
+      <div class="progress-bar">
+
+        <div
+          class="progress-fill"
+          [style.width.%]="job.progress"
+        ></div>
+
+      </div>
+
+      <p
+        class="retry-text"
+        *ngIf="job.imageHost"
+      >
+        Reference image host: {{ job.imageHost }}
+      </p>
+
+      <p
+        class="retry-text"
+        *ngIf="job.attempt > 1"
+      >
+        Quality retry:
+        {{ job.attempt }}
+        /
+        {{ job.maxAttempts }}
+      </p>
+
+    </div>
+
+    <!-- ERROR FROM JOB -->
+
+    <div
+      class="error"
+      *ngIf="
+        job?.status === 'failed' &&
+        job?.error &&
+        job?.error !== errorMessage
+      "
+    >
+      {{ job?.error }}
+
+      <div class="error-hint" *ngIf="job?.hint">
+        {{ job?.hint }}
+      </div>
+    </div>
+
+    <!-- VIDEO -->
+
+    <div
+      class="video-result"
+      *ngIf="
+        job?.status === 'completed' &&
+        job?.videoUrl
+      "
+    >
+
+      <h2>
+        Your Video
+      </h2>
+
+      <video
+        controls
+        playsinline
+        [src]="job?.videoUrl || ''"
+      ></video>
+
+      <a
+        class="download-button"
+        [href]="job?.videoUrl || ''"
+        target="_blank"
+        rel="noopener"
+        download
+      >
+        Download Video
+      </a>
+
+    </div>
+
+  </div>
+
+</div>
