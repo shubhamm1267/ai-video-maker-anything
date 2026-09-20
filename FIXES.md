@@ -104,9 +104,9 @@ npm run install:all && npm run dev   # macOS / Linux
 ```
 
 Check karne ke liye:
-- http://localhost:3000/api/health → `gemini: true`, `imageRelay` dikhna chahiye
-- http://localhost:3000/api/prompt/health → key loaded hai ya nahi
-- http://localhost:3000/api/prompt/models → aapki key kaun se models use kar sakti hai
+- https://ai-video-maker-anything.vercel.app/api/health → `gemini: true`, `imageRelay` dikhna chahiye
+- https://ai-video-maker-anything.vercel.app/api/prompt/health → key loaded hai ya nahi
+- https://ai-video-maker-anything.vercel.app/api/prompt/models → aapki key kaun se models use kar sakti hai
 
 > Note: `sharp` optional hai. Agar install na ho to app phir bhi chalta hai
 > (image re-encode skip ho jaata hai), par install karna behtar hai:

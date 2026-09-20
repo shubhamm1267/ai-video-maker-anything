@@ -1,16 +1,16 @@
 /**
  * Ek hi jagah se API base URL.
  *
- * Pehle har service me 'http://localhost:3000/api' hard-coded tha, to
+ * Pehle har service me 'https://ai-video-maker-anything.vercel.app/api' hard-coded tha, to
  * deploy/build karne par frontend apne hi server ke bajaye localhost
  * dhoondta tha. Ab:
  *
- *  - dev (ng serve, port 4200)  -> http://localhost:3000/api
+ *  - dev (ng serve, port 4200)  -> https://ai-video-maker-anything.vercel.app/api
  *  - backend ke serve kiye hue build -> /api (same origin)
  */
 function resolveApiBase(): string {
   if (typeof window === 'undefined') {
-    return 'http://localhost:3000/api';
+    return 'https://ai-video-maker-anything.vercel.app/api';
   }
 
   const { hostname, port, origin } = window.location;
@@ -19,7 +19,7 @@ function resolveApiBase(): string {
     (hostname === 'localhost' || hostname === '127.0.0.1') && port === '4200';
 
   if (isLocalDevServer) {
-    return 'http://localhost:3000/api';
+    return 'https://ai-video-maker-anything.vercel.app/api';
   }
 
   return `${origin}/api`;

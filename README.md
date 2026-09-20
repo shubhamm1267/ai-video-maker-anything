@@ -84,7 +84,7 @@ start.bat
 First run installs dependencies (root, `backend/`, `frontend/`), then starts
 both servers in the same window:
 
-- Backend → http://localhost:3000
+- Backend → https://ai-video-maker-anything.vercel.app
 - Text → Video → http://localhost:4200/#/video
 - Prompt Ideas → http://localhost:4200/#/prompt
 
