@@ -1,11 +1,18 @@
 import { Injectable } from '@angular/core';
+
 import { HttpClient } from '@angular/common/http';
+
 import { Observable } from 'rxjs';
+
 import { VIDEO_API_BASE } from '../shared/api.config';
 
 export type QualityMode =
   | 'standard'
   | 'high';
+
+export type AspectRatio =
+  | '9:16'
+  | '16:9';
 
 export type GenerationStatus =
   | 'starting'
@@ -22,66 +29,107 @@ export type GenerationStatus =
 export interface GenerationJob {
   jobId: string;
 
-  type?: 'text' | 'image';
+  type?:
+    | 'text'
+    | 'image';
 
-  status: GenerationStatus;
+  status:
+    GenerationStatus;
 
-  progress: number;
+  progress:
+    number;
 
-  videoUrl: string | null;
+  videoUrl:
+    string | null;
 
-  error: string | null;
+  error:
+    string | null;
 
-  hint?: string | null;
+  hint?:
+    string | null;
 
-  imageHost?: string | null;
+  imageHost?:
+    string | null;
 
-  attempt: number;
+  attempt:
+    number;
 
-  maxAttempts: number;
+  maxAttempts:
+    number;
 
-  qualityMode: QualityMode | string;
+  qualityMode:
+    QualityMode | string;
+
+  aspectRatio?:
+    AspectRatio | string;
 }
 
 @Injectable({
-  providedIn: 'root',
+  providedIn:
+    'root',
 })
 export class GenerationService {
   private readonly apiBase =
     VIDEO_API_BASE;
 
   constructor(
-    private http: HttpClient
+    private http:
+      HttpClient
   ) {}
 
   submitGeneration(
     prompt: string,
-    qualityMode: QualityMode
+
+    qualityMode:
+      QualityMode,
+
+    aspectRatio:
+      AspectRatio
   ): Observable<GenerationJob> {
     return this.http.post<GenerationJob>(
       `${this.apiBase}/generate`,
+
       {
         prompt,
+
         qualityMode,
+
+        aspectRatio,
       }
     );
   }
 
   submitImageGeneration(
-    prompt: string,
-    imageData: string | null,
-    imageUrl: string,
-    qualityMode: QualityMode
+    prompt:
+      string,
+
+    imageData:
+      string | null,
+
+    imageUrl:
+      string,
+
+    qualityMode:
+      QualityMode,
+
+    aspectRatio:
+      AspectRatio
   ): Observable<GenerationJob> {
     return this.http.post<GenerationJob>(
       `${this.apiBase}/generate-image`,
+
       {
         prompt,
+
         imageData,
+
         imageUrl:
           imageUrl.trim() ||
           null,
+
         qualityMode,
+
+        aspectRatio,
       }
     );
   }

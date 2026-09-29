@@ -70,17 +70,25 @@
 
       <label>
         Reference Image
+
         <span class="optional">
           — optional individually
         </span>
+
       </label>
 
       <div class="source-info">
+
         Use any one:
+
         <b>Upload</b>,
+
         <b>Ctrl + V</b>,
+
         or
+
         <b>Image URL</b>.
+
       </div>
 
       <!-- UPLOAD -->
@@ -105,9 +113,15 @@
         </button>
 
         <span class="paste-text">
+
           or press
-          <strong>Ctrl + V</strong>
+
+          <strong>
+            Ctrl + V
+          </strong>
+
           to paste an image
+
         </span>
 
       </div>
@@ -147,7 +161,9 @@
       <div class="url-section">
 
         <div class="or-line">
-          <span>OR</span>
+          <span>
+            OR
+          </span>
         </div>
 
         <input
@@ -159,11 +175,24 @@
         />
 
         <div class="hint">
-          Public <b>direct image link</b> daalein (URL .jpg / .png par khatam ho).
+
+          Public
+
+          <b>
+            direct image link
+          </b>
+
+          daalein
+          (URL .jpg / .png par khatam ho).
+
           Upload ki hui image ko priority milti hai.
+
         </div>
 
-        <div class="hint warning" *ngIf="urlWarning">
+        <div
+          class="hint warning"
+          *ngIf="urlWarning"
+        >
           ⚠️ {{ urlWarning }}
         </div>
 
@@ -176,6 +205,88 @@
         >
           Clear uploaded image and use URL
         </button>
+
+      </div>
+
+    </div>
+
+    <!-- VIDEO FORMAT -->
+
+    <div class="field">
+
+      <label>
+        Video Format
+      </label>
+
+      <div class="ratio-options">
+
+        <!-- SHORT / VERTICAL -->
+
+        <button
+          type="button"
+          class="ratio-option"
+          [class.active]="aspectRatio === '9:16'"
+          (click)="aspectRatio = '9:16'"
+          [disabled]="loading"
+        >
+
+          <span
+            class="ratio-icon portrait"
+          ></span>
+
+          <span class="ratio-copy">
+
+            <strong>
+              Short / Reels
+            </strong>
+
+            <small>
+              9:16 · vertical
+            </small>
+
+          </span>
+
+        </button>
+
+        <!-- LONG / LANDSCAPE -->
+
+        <button
+          type="button"
+          class="ratio-option"
+          [class.active]="aspectRatio === '16:9'"
+          (click)="aspectRatio = '16:9'"
+          [disabled]="loading"
+        >
+
+          <span
+            class="ratio-icon landscape"
+          ></span>
+
+          <span class="ratio-copy">
+
+            <strong>
+              Long / YouTube
+            </strong>
+
+            <small>
+              16:9 · landscape
+            </small>
+
+          </span>
+
+        </button>
+
+      </div>
+
+      <div class="hint">
+
+        Shorts, Reels aur TikTok ke liye
+
+        <b>9:16</b>.
+
+        Normal YouTube / landscape video ke liye
+
+        <b>16:9</b>.
 
       </div>
 
@@ -212,11 +323,16 @@
       class="error"
       *ngIf="errorMessage"
     >
+
       {{ errorMessage }}
 
-      <div class="error-hint" *ngIf="errorHint">
+      <div
+        class="error-hint"
+        *ngIf="errorHint"
+      >
         {{ errorHint }}
       </div>
+
     </div>
 
     <!-- GENERATE -->
@@ -270,17 +386,31 @@
         class="retry-text"
         *ngIf="job.imageHost"
       >
-        Reference image host: {{ job.imageHost }}
+        Reference image host:
+        {{ job.imageHost }}
+      </p>
+
+      <p
+        class="retry-text"
+        *ngIf="job.aspectRatio"
+      >
+        Video format:
+        {{ job.aspectRatio }}
       </p>
 
       <p
         class="retry-text"
         *ngIf="job.attempt > 1"
       >
+
         Quality retry:
+
         {{ job.attempt }}
+
         /
+
         {{ job.maxAttempts }}
+
       </p>
 
     </div>
@@ -295,17 +425,23 @@
         job?.error !== errorMessage
       "
     >
+
       {{ job?.error }}
 
-      <div class="error-hint" *ngIf="job?.hint">
+      <div
+        class="error-hint"
+        *ngIf="job?.hint"
+      >
         {{ job?.hint }}
       </div>
+
     </div>
 
     <!-- VIDEO -->
 
     <div
       class="video-result"
+      [class.portrait-result]="job?.aspectRatio === '9:16'"
       *ngIf="
         job?.status === 'completed' &&
         job?.videoUrl

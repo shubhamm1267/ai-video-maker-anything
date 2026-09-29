@@ -25,11 +25,33 @@ const AGNES_BASE_URL =
 const MODEL = 'agnes-video-v2.0';
 
 const VIDEO_CONFIG = {
-  width: 1152,
-  height: 768,
   num_frames: 289,
   frame_rate: 24,
+  defaultAspectRatio: '9:16',
+
+  aspectRatios: {
+    '9:16': {
+      width: 720,
+      height: 1280,
+    },
+
+    '16:9': {
+      width: 1280,
+      height: 720,
+    },
+  },
 };
+
+function getVideoDimensions(
+  aspectRatio = VIDEO_CONFIG.defaultAspectRatio
+) {
+  return (
+    VIDEO_CONFIG.aspectRatios[aspectRatio] ||
+    VIDEO_CONFIG.aspectRatios[
+      VIDEO_CONFIG.defaultAspectRatio
+    ]
+  );
+}
 
 function getHeaders() {
   if (!AGNES_API_KEY) {
@@ -69,8 +91,15 @@ function extractVideoId(data) {
  * Sab ko 3 hi states me normalise karte hain,
  * warna completed video bhi "timeout" me fail hoti thi.
  */
-function normalizeStatus(rawStatus, hasVideoUrl) {
-  const status = String(rawStatus || '').toLowerCase().trim();
+function normalizeStatus(
+  rawStatus,
+  hasVideoUrl
+) {
+  const status = String(
+    rawStatus || ''
+  )
+    .toLowerCase()
+    .trim();
 
   const completed = [
     'completed',
@@ -96,16 +125,31 @@ function normalizeStatus(rawStatus, hasVideoUrl) {
     'timeout',
   ];
 
-  if (completed.includes(status)) return 'completed';
-  if (failed.includes(status)) return 'failed';
+  if (completed.includes(status)) {
+    return 'completed';
+  }
+
+  if (failed.includes(status)) {
+    return 'failed';
+  }
 
   // Status samajh na aaye par video URL aa gaya = ho gaya.
-  if (hasVideoUrl) return 'completed';
+  if (hasVideoUrl) {
+    return 'completed';
+  }
 
-  if (!status) return 'in_progress';
+  if (!status) {
+    return 'in_progress';
+  }
 
   if (
-    ['queued', 'queueing', 'pending', 'waiting', 'submitted'].includes(status)
+    [
+      'queued',
+      'queueing',
+      'pending',
+      'waiting',
+      'submitted',
+    ].includes(status)
   ) {
     return 'queued';
   }
@@ -119,24 +163,40 @@ function normalizeStatus(rawStatus, hasVideoUrl) {
  */
 function readableAgnesError(details) {
   let text =
-    typeof details === 'string' ? details : JSON.stringify(details || {});
+    typeof details === 'string'
+      ? details
+      : JSON.stringify(details || {});
 
   // Nested JSON ke andar ka asli message dhoondo.
-  const match = text.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  const match = text.match(
+    /"message"\s*:\s*"((?:[^"\\]|\\.)*)"/
+  );
+
   if (match) {
     try {
-      text = JSON.parse(`"${match[1]}"`);
+      text = JSON.parse(
+        `"${match[1]}"`
+      );
     } catch {
       text = match[1];
     }
   }
 
-  const inner = text.match(/"message"\s*:\s*\\?"?([^"\\]{5,400})/);
-  if (inner && /Download image URL failed/i.test(text)) {
+  const inner = text.match(
+    /"message"\s*:\s*\\?"?([^"\\]{5,400})/
+  );
+
+  if (
+    inner &&
+    /Download image URL failed/i.test(text)
+  ) {
     text = inner[1];
   }
 
-  return text.replace(/\s+/g, ' ').trim().slice(0, 500);
+  return text
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
 }
 
 /** Kya yeh error "image URL download nahi ho paaya" wala hai? */
@@ -148,23 +208,35 @@ function isImageDownloadError(message) {
 
 function createBasePayload(
   prompt,
-  negativePrompt
+  negativePrompt,
+  aspectRatio = VIDEO_CONFIG.defaultAspectRatio
 ) {
+  const dimensions =
+    getVideoDimensions(aspectRatio);
+
   return {
     model: MODEL,
+
     prompt,
 
-    width: VIDEO_CONFIG.width,
-    height: VIDEO_CONFIG.height,
+    width: dimensions.width,
 
-    num_frames: VIDEO_CONFIG.num_frames,
-    frame_rate: VIDEO_CONFIG.frame_rate,
+    height: dimensions.height,
 
-    negative_prompt: negativePrompt,
+    num_frames:
+      VIDEO_CONFIG.num_frames,
+
+    frame_rate:
+      VIDEO_CONFIG.frame_rate,
+
+    negative_prompt:
+      negativePrompt,
   };
 }
 
-function validateImageReference(imageUrl) {
+function validateImageReference(
+  imageUrl
+) {
   if (!imageUrl) {
     throw new Error(
       'Image reference is required'
@@ -180,7 +252,9 @@ function validateImageReference(imageUrl) {
     );
   }
 
-  if (!/^https?:\/\//i.test(imageUrl)) {
+  if (
+    !/^https?:\/\//i.test(imageUrl)
+  ) {
     throw new Error(
       'Image-to-Video requires a public HTTP/HTTPS image URL.'
     );
@@ -193,85 +267,123 @@ async function createVideoTask({
   prompt,
   qualityMode = 'high',
   hasReferenceImage = false,
+  aspectRatio = VIDEO_CONFIG.defaultAspectRatio,
 }) {
-  const compiled = compileVideoPrompt({
-    prompt,
-    hasReferenceImage,
-    mode: qualityMode,
-  });
+  const compiled =
+    compileVideoPrompt({
+      prompt,
+      hasReferenceImage,
+      mode: qualityMode,
+    });
 
-  const consistency = buildConsistencyConfig({
-    hasReferenceImage,
-    lockCharacter: true,
-    lockObjects: true,
-  });
+  const consistency =
+    buildConsistencyConfig({
+      hasReferenceImage,
+      lockCharacter: true,
+      lockObjects: true,
+    });
 
   const finalPrompt = [
     compiled.prompt,
-    getConsistencyPrompt(consistency),
+
+    getConsistencyPrompt(
+      consistency
+    ),
+
     buildPhysicsPrompt(),
   ]
     .filter(Boolean)
     .join('\n\n');
 
-  const payload = createBasePayload(
-    finalPrompt,
-    compiled.negativePrompt
-  );
+  const payload =
+    createBasePayload(
+      finalPrompt,
+      compiled.negativePrompt,
+      aspectRatio
+    );
 
   console.log(
     'Creating Agnes text-to-video task...'
   );
 
   try {
-    const response = await axios.post(
-      `${AGNES_BASE_URL}/v1/videos`,
-      payload,
-      {
-        headers: getHeaders(),
-        timeout: 120000,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      }
-    );
+    const response =
+      await axios.post(
+        `${AGNES_BASE_URL}/v1/videos`,
 
-    const data = response.data || {};
+        payload,
+
+        {
+          headers:
+            getHeaders(),
+
+          timeout:
+            120000,
+
+          maxContentLength:
+            Infinity,
+
+          maxBodyLength:
+            Infinity,
+        }
+      );
+
+    const data =
+      response.data || {};
 
     console.log(
       'Agnes create response:',
       {
-        video_id: data.video_id,
-        task_id: data.task_id,
-        status: data.status,
+        video_id:
+          data.video_id,
+
+        task_id:
+          data.task_id,
+
+        status:
+          data.status,
       }
     );
 
     return {
-      videoId: extractVideoId(data),
+      videoId:
+        extractVideoId(data),
+
       taskId:
         data.task_id ||
         data.id ||
         null,
 
-      status: normalizeStatus(
-        data.status || 'queued',
-        Boolean(extractVideoUrl(data))
-      ),
+      status:
+        normalizeStatus(
+          data.status ||
+            'queued',
+
+          Boolean(
+            extractVideoUrl(
+              data
+            )
+          )
+        ),
 
       progress:
-        Number(data.progress || 0),
+        Number(
+          data.progress || 0
+        ),
 
       videoUrl:
         extractVideoUrl(data),
 
       finalPrompt,
+
       negativePrompt:
         compiled.negativePrompt,
     };
   } catch (error) {
     const details =
       error.response?.data ||
-      error.response?.statusText ||
+      error.response
+        ?.statusText ||
       error.message;
 
     console.error(
@@ -280,7 +392,9 @@ async function createVideoTask({
     );
 
     throw new Error(
-      readableAgnesError(details)
+      readableAgnesError(
+        details
+      )
     );
   }
 }
@@ -289,93 +403,148 @@ async function createImageVideoTask({
   prompt,
   imageUrl,
   qualityMode = 'high',
+  aspectRatio = VIDEO_CONFIG.defaultAspectRatio,
 }) {
   const validImageUrl =
-    validateImageReference(imageUrl);
+    validateImageReference(
+      imageUrl
+    );
 
-  const compiled = compileVideoPrompt({
-    prompt,
-    hasReferenceImage: true,
-    mode: qualityMode,
-  });
+  const compiled =
+    compileVideoPrompt({
+      prompt,
 
-  const consistency = buildConsistencyConfig({
-    hasReferenceImage: true,
-    lockCharacter: true,
-    lockObjects: true,
-  });
+      hasReferenceImage:
+        true,
+
+      mode:
+        qualityMode,
+    });
+
+  const consistency =
+    buildConsistencyConfig({
+      hasReferenceImage:
+        true,
+
+      lockCharacter:
+        true,
+
+      lockObjects:
+        true,
+    });
 
   const finalPrompt = [
     compiled.prompt,
-    getConsistencyPrompt(consistency),
+
+    getConsistencyPrompt(
+      consistency
+    ),
+
     buildPhysicsPrompt(),
   ]
     .filter(Boolean)
     .join('\n\n');
 
-  const payload = createBasePayload(
-    finalPrompt,
-    compiled.negativePrompt
-  );
+  const payload =
+    createBasePayload(
+      finalPrompt,
+
+      compiled.negativePrompt,
+
+      aspectRatio
+    );
 
   // Agnes v2.0 expects singular "image"
   // containing a public image URL.
-  payload.image = validImageUrl;
+  payload.image =
+    validImageUrl;
 
   console.log(
     'Creating Agnes image-to-video task...'
   );
 
   try {
-    const response = await axios.post(
-      `${AGNES_BASE_URL}/v1/videos`,
-      payload,
-      {
-        headers: getHeaders(),
-        timeout: 120000,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      }
-    );
+    const response =
+      await axios.post(
+        `${AGNES_BASE_URL}/v1/videos`,
 
-    const data = response.data || {};
+        payload,
+
+        {
+          headers:
+            getHeaders(),
+
+          timeout:
+            120000,
+
+          maxContentLength:
+            Infinity,
+
+          maxBodyLength:
+            Infinity,
+        }
+      );
+
+    const data =
+      response.data || {};
 
     console.log(
       'Agnes image create response:',
       {
-        video_id: data.video_id,
-        task_id: data.task_id,
-        status: data.status,
+        video_id:
+          data.video_id,
+
+        task_id:
+          data.task_id,
+
+        status:
+          data.status,
       }
     );
 
     return {
-      videoId: extractVideoId(data),
+      videoId:
+        extractVideoId(
+          data
+        ),
 
       taskId:
         data.task_id ||
         data.id ||
         null,
 
-      status: normalizeStatus(
-        data.status || 'queued',
-        Boolean(extractVideoUrl(data))
-      ),
+      status:
+        normalizeStatus(
+          data.status ||
+            'queued',
+
+          Boolean(
+            extractVideoUrl(
+              data
+            )
+          )
+        ),
 
       progress:
-        Number(data.progress || 0),
+        Number(
+          data.progress || 0
+        ),
 
       videoUrl:
-        extractVideoUrl(data),
+        extractVideoUrl(
+          data
+        ),
 
       finalPrompt,
+
       negativePrompt:
         compiled.negativePrompt,
     };
   } catch (error) {
     const details =
       error.response?.data ||
-      error.response?.statusText ||
+      error.response
+        ?.statusText ||
       error.message;
 
     console.error(
@@ -384,7 +553,9 @@ async function createImageVideoTask({
     );
 
     throw new Error(
-      readableAgnesError(details)
+      readableAgnesError(
+        details
+      )
     );
   }
 }
@@ -393,6 +564,7 @@ async function createRetryTask({
   originalPrompt,
   attempt,
   qualityMode = 'high',
+  aspectRatio = VIDEO_CONFIG.defaultAspectRatio,
 }) {
   const retryPrompt =
     buildRetryPrompt(
@@ -401,13 +573,21 @@ async function createRetryTask({
     );
 
   return createVideoTask({
-    prompt: retryPrompt,
+    prompt:
+      retryPrompt,
+
     qualityMode,
-    hasReferenceImage: false,
+
+    hasReferenceImage:
+      false,
+
+    aspectRatio,
   });
 }
 
-async function getVideoStatus(videoId) {
+async function getVideoStatus(
+  videoId
+) {
   if (!videoId) {
     throw new Error(
       'Agnes videoId is missing'
@@ -415,42 +595,60 @@ async function getVideoStatus(videoId) {
   }
 
   try {
-    const response = await axios.get(
-      `${AGNES_BASE_URL}/agnesapi`,
-      {
-        params: {
-          video_id: videoId,
-          model_name: MODEL,
-        },
+    const response =
+      await axios.get(
+        `${AGNES_BASE_URL}/agnesapi`,
 
-        headers: {
-          Authorization:
-            `Bearer ${AGNES_API_KEY}`,
-        },
+        {
+          params: {
+            video_id:
+              videoId,
 
-        timeout: 60000,
-      }
-    );
+            model_name:
+              MODEL,
+          },
 
-    const data = response.data || {};
+          headers: {
+            Authorization:
+              `Bearer ${AGNES_API_KEY}`,
+          },
 
-    const videoUrl = extractVideoUrl(data);
+          timeout:
+            60000,
+        }
+      );
+
+    const data =
+      response.data || {};
+
+    const videoUrl =
+      extractVideoUrl(
+        data
+      );
 
     return {
       videoId:
         data.video_id ||
         videoId,
 
-      status: normalizeStatus(
-        data.status,
-        Boolean(videoUrl)
-      ),
+      status:
+        normalizeStatus(
+          data.status,
+
+          Boolean(
+            videoUrl
+          )
+        ),
 
       rawStatus:
-        data.status || null,
+        data.status ||
+        null,
 
       progress:
-        Number(data.progress || 0),
+        Number(
+          data.progress ||
+            0
+        ),
 
       videoUrl,
 
@@ -459,27 +657,40 @@ async function getVideoStatus(videoId) {
         data.message ||
         null,
 
-      raw: data,
+      raw:
+        data,
     };
   } catch (error) {
     const details =
       error.response?.data ||
-      error.response?.statusText ||
+      error.response
+        ?.statusText ||
       error.message;
 
     throw new Error(
-      readableAgnesError(details)
+      readableAgnesError(
+        details
+      )
     );
   }
 }
 
 module.exports = {
   normalizeStatus,
+
   readableAgnesError,
+
   isImageDownloadError,
+
   createVideoTask,
+
   createImageVideoTask,
+
   createRetryTask,
+
   getVideoStatus,
+
   VIDEO_CONFIG,
+
+  getVideoDimensions,
 };
