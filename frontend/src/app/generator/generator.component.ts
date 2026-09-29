@@ -5,9 +5,13 @@ import {
   OnInit,
 } from '@angular/core';
 
-import { CommonModule } from '@angular/common';
+import {
+  CommonModule,
+} from '@angular/common';
 
-import { FormsModule } from '@angular/forms';
+import {
+  FormsModule,
+} from '@angular/forms';
 
 import {
   Subscription,
@@ -20,14 +24,18 @@ import {
 } from 'rxjs/operators';
 
 import {
+  AgnesVideoModel,
   AspectRatio,
   GenerationJob,
   GenerationService,
   QualityMode,
   VideoDuration,
+  VideoResolution,
 } from './generation.service';
 
-import { PromptBridgeService } from '../shared/prompt-bridge.service';
+import {
+  PromptBridgeService,
+} from '../shared/prompt-bridge.service';
 
 @Component({
   selector:
@@ -76,26 +84,26 @@ export class GeneratorComponent
     QualityMode =
     'high';
 
-  /*
-   * Default:
-   * Vertical Shorts
-   */
   aspectRatio:
     AspectRatio =
     '9:16';
 
   /*
-   * Default video duration.
-   *
-   * 12 sec:
-   * 289 frames @ 24 FPS
-   *
-   * 18 sec:
-   * 433 frames @ 24 FPS
+   * Default model:
+   * Video 2.0 because it supports our
+   * current 18-second setup.
    */
+  videoModel:
+    AgnesVideoModel =
+    'agnes-video-v2.0';
+
   durationSeconds:
     VideoDuration =
     12;
+
+  resolution:
+    VideoResolution =
+    '720P';
 
   job:
     GenerationJob | null =
@@ -140,6 +148,159 @@ export class GeneratorComponent
     }
   }
 
+  /*
+   * =======================================================
+   * MODEL
+   * =======================================================
+   */
+
+  selectVideoModel(
+    model:
+      AgnesVideoModel
+  ) {
+    if (
+      this.loading
+    ) {
+      return;
+    }
+
+    this.videoModel =
+      model;
+
+    /*
+     * Video 2.0:
+     * only 12 / 18.
+     */
+    if (
+      model ===
+      'agnes-video-v2.0'
+    ) {
+      if (
+        this.durationSeconds !==
+          12 &&
+        this.durationSeconds !==
+          18
+      ) {
+        this.durationSeconds =
+          12;
+      }
+
+      this.resolution =
+        '720P';
+
+      return;
+    }
+
+    /*
+     * 2.5 / Flash:
+     * max 12 seconds.
+     */
+    if (
+      this.durationSeconds ===
+      18
+    ) {
+      this.durationSeconds =
+        12;
+    }
+
+    /*
+     * Flash = 720P only.
+     */
+    if (
+      model ===
+      'agnes-video-2.5-flash'
+    ) {
+      this.resolution =
+        '720P';
+    }
+  }
+
+  get durationOptions():
+    VideoDuration[] {
+    if (
+      this.videoModel ===
+      'agnes-video-v2.0'
+    ) {
+      return [
+        12,
+        18,
+      ];
+    }
+
+    return [
+      4,
+      6,
+      8,
+      10,
+      12,
+    ];
+  }
+
+  get resolutionOptions():
+    VideoResolution[] {
+    if (
+      this.videoModel ===
+      'agnes-video-2.5'
+    ) {
+      return [
+        '720P',
+        '1080P',
+        '1K',
+        '2K',
+      ];
+    }
+
+    return [
+      '720P',
+    ];
+  }
+
+  get isVideo20():
+    boolean {
+    return (
+      this.videoModel ===
+      'agnes-video-v2.0'
+    );
+  }
+
+  get isVideo25():
+    boolean {
+    return (
+      this.videoModel ===
+      'agnes-video-2.5'
+    );
+  }
+
+  get isVideo25Flash():
+    boolean {
+    return (
+      this.videoModel ===
+      'agnes-video-2.5-flash'
+    );
+  }
+
+  get selectedModelLabel():
+    string {
+    switch (
+      this.videoModel
+    ) {
+      case 'agnes-video-2.5':
+        return 'Agnes Video 2.5';
+
+      case 'agnes-video-2.5-flash':
+        return 'Agnes Video 2.5 Flash';
+
+      default:
+        return 'Agnes Video 2.0';
+    }
+  }
+
+  /*
+   * =======================================================
+   * MODE
+   * =======================================================
+   */
+
   selectMode(
     mode:
       | 'text'
@@ -164,8 +325,15 @@ export class GeneratorComponent
     }
   }
 
+  /*
+   * =======================================================
+   * IMAGE
+   * =======================================================
+   */
+
   onImageSelected(
-    event: Event
+    event:
+      Event
   ) {
     const input =
       event.target as HTMLInputElement;
@@ -241,15 +409,15 @@ export class GeneratorComponent
   }
 
   private useImageFile(
-    file: File
+    file:
+      File
   ) {
-    const allowedTypes =
-      [
-        'image/png',
-        'image/jpeg',
-        'image/jpg',
-        'image/webp',
-      ];
+    const allowedTypes = [
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'image/webp',
+    ];
 
     if (
       !allowedTypes.includes(
@@ -355,7 +523,7 @@ export class GeneratorComponent
       )
     ) {
       this.urlWarning =
-        'Google Photos links se image download nahi hoti. Image download karke Upload Image use karein.';
+        'Google Photos link use na karein. Image upload karein.';
 
       return;
     }
@@ -366,18 +534,7 @@ export class GeneratorComponent
       )
     ) {
       this.urlWarning =
-        'Google Drive file ka access Anyone with the link hona chahiye. Upload karna zyada safe hai.';
-
-      return;
-    }
-
-    if (
-      /\/\/(?:www\.)?(?:instagram|facebook|pinterest)\.com/i.test(
-        url
-      )
-    ) {
-      this.urlWarning =
-        'Social media page links image file nahi hote. Direct image URL use karein.';
+        'Google Drive file Anyone with the link honi chahiye.';
     }
   }
 
@@ -415,6 +572,12 @@ export class GeneratorComponent
     );
   }
 
+  /*
+   * =======================================================
+   * STATUS
+   * =======================================================
+   */
+
   get statusLabel():
     string {
     const status =
@@ -430,19 +593,19 @@ export class GeneratorComponent
         'Shuru ho raha hai…',
 
       preparing_image:
-        'Image tayaar aur upload ho rahi hai…',
+        'Image tayaar ho rahi hai…',
 
       retrying_image_host:
-        'Doosre image host se try kar rahe hain…',
+        'Doosra image host try ho raha hai…',
 
       optimizing_prompt:
         'Prompt optimise ho raha hai…',
 
       queued:
-        'Queue me hai…',
+        'Agnes queue me hai…',
 
       in_progress:
-        'Video ban rahi hai…',
+        'Video generate ho rahi hai…',
 
       retrying:
         'Quality retry chal raha hai…',
@@ -451,7 +614,7 @@ export class GeneratorComponent
         'Video ready hai',
 
       failed:
-        'Fail ho gaya',
+        'Generation fail hui',
     };
 
     return (
@@ -459,6 +622,12 @@ export class GeneratorComponent
       status
     );
   }
+
+  /*
+   * =======================================================
+   * GENERATE
+   * =======================================================
+   */
 
   generate() {
     this.resetError();
@@ -484,6 +653,17 @@ export class GeneratorComponent
       return;
     }
 
+    /*
+     * Safety:
+     * Flash always 720P.
+     */
+    if (
+      this.isVideo25Flash
+    ) {
+      this.resolution =
+        '720P';
+    }
+
     this.loading =
       true;
 
@@ -505,7 +685,8 @@ export class GeneratorComponent
   }
 
   private generateText(
-    prompt: string
+    prompt:
+      string
   ) {
     this.generationService
       .submitGeneration(
@@ -515,7 +696,11 @@ export class GeneratorComponent
 
         this.aspectRatio,
 
-        this.durationSeconds
+        this.durationSeconds,
+
+        this.videoModel,
+
+        this.resolution
       )
       .subscribe({
         next:
@@ -537,7 +722,8 @@ export class GeneratorComponent
   }
 
   private generateImage(
-    prompt: string
+    prompt:
+      string
   ) {
     const data =
       this.imageData;
@@ -559,7 +745,11 @@ export class GeneratorComponent
 
         this.aspectRatio,
 
-        this.durationSeconds
+        this.durationSeconds,
+
+        this.videoModel,
+
+        this.resolution
       )
       .subscribe({
         next:
@@ -581,7 +771,8 @@ export class GeneratorComponent
   }
 
   private startPolling(
-    jobId: string
+    jobId:
+      string
   ) {
     this.pollSubscription
       ?.unsubscribe();
@@ -594,9 +785,10 @@ export class GeneratorComponent
         .pipe(
           switchMap(
             () =>
-              this.generationService.pollStatus(
-                jobId
-              )
+              this.generationService
+                .pollStatus(
+                  jobId
+                )
           ),
 
           takeWhile(
@@ -648,7 +840,8 @@ export class GeneratorComponent
   }
 
   private handleError(
-    error: any
+    error:
+      any
   ) {
     this.loading =
       false;
@@ -661,10 +854,10 @@ export class GeneratorComponent
       0
     ) {
       this.errorMessage =
-        'Backend tak pahunch nahi paaye. Kya backend server chal raha hai?';
+        'Backend tak pahunch nahi paaye.';
 
       this.errorHint =
-        'npm run dev se dono servers chala kar check karein.';
+        'Backend server check karein.';
 
       return;
     }

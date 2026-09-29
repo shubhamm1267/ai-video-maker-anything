@@ -15,8 +15,11 @@ const {
   getVideoStatus,
   isImageDownloadError,
   VIDEO_CONFIG,
-  getVideoDimensions,
-  getDurationConfig,
+  VIDEO_MODELS,
+  getModelConfig,
+  isLegacyModel,
+  getReferenceImageDimensions,
+  getLegacyDurationConfig,
 } = require('./agnes-video');
 
 const {
@@ -52,7 +55,7 @@ const MAX_JOB_TIME =
   Number(
     process.env
       .JOB_TIMEOUT_MINUTES ||
-      15
+      20
   ) *
   60 *
   1000;
@@ -90,9 +93,9 @@ app.use(
   })
 );
 
-/* --------------------------------------------------
+/* =========================================================
    HELPERS
--------------------------------------------------- */
+========================================================= */
 
 function createJobId() {
   return `${Date.now()}-${Math.random()
@@ -171,14 +174,31 @@ function clientJob(
 
     aspectRatio:
       job.aspectRatio ||
-      VIDEO_CONFIG.defaultAspectRatio,
+      VIDEO_CONFIG
+        .defaultAspectRatio,
 
     durationSeconds:
       job.durationSeconds ||
-      VIDEO_CONFIG.defaultDurationSeconds,
+      VIDEO_CONFIG
+        .defaultDurationSeconds,
+
+    videoModel:
+      job.videoModel ||
+      VIDEO_CONFIG
+        .defaultModel,
+
+    resolution:
+      job.resolution ||
+      VIDEO_CONFIG
+        .defaultResolution,
 
     frameRate:
-      VIDEO_CONFIG.frame_rate,
+      isLegacyModel(
+        job.videoModel
+      )
+        ? VIDEO_CONFIG
+            .frame_rate
+        : null,
 
     imageHost:
       job.imageHost ||
@@ -213,6 +233,10 @@ setInterval(
   30 * 60 * 1000
 ).unref();
 
+/* =========================================================
+   VALIDATION
+========================================================= */
+
 function validatePrompt(
   prompt
 ) {
@@ -229,7 +253,7 @@ function validatePrompt(
     prompt.trim().length <
     3
   ) {
-    return 'Prompt thoda detail me likhein (kam se kam 3 characters).';
+    return 'Prompt thoda detail me likhein.';
   }
 
   return null;
@@ -238,13 +262,13 @@ function validatePrompt(
 function validateAspectRatio(
   aspectRatio
 ) {
-  const value =
-    aspectRatio ||
-    VIDEO_CONFIG.defaultAspectRatio;
-
   if (
-    !VIDEO_CONFIG
-      .aspectRatios[value]
+    ![
+      '9:16',
+      '16:9',
+    ].includes(
+      aspectRatio
+    )
   ) {
     return 'Video format invalid hai. Sirf 9:16 ya 16:9 select karein.';
   }
@@ -252,20 +276,82 @@ function validateAspectRatio(
   return null;
 }
 
+function validateVideoModel(
+  videoModel
+) {
+  if (
+    !VIDEO_MODELS[
+      videoModel
+    ]
+  ) {
+    return 'Invalid Agnes video model.';
+  }
+
+  return null;
+}
+
 function validateDuration(
+  videoModel,
   durationSeconds
 ) {
+  const model =
+    getModelConfig(
+      videoModel
+    );
+
   const duration =
     Number(
-      durationSeconds ??
-        VIDEO_CONFIG.defaultDurationSeconds
+      durationSeconds
     );
 
   if (
-    !VIDEO_CONFIG
-      .durations[duration]
+    !Number.isFinite(
+      duration
+    )
   ) {
-    return 'Video duration invalid hai. Sirf 12 sec ya 18 sec select karein.';
+    return 'Video duration invalid hai.';
+  }
+
+  if (
+    !model.allowedDurations.includes(
+      duration
+    )
+  ) {
+    if (
+      videoModel ===
+      'agnes-video-v2.0'
+    ) {
+      return 'Video 2.0 me 12 sec ya 18 sec select karein.';
+    }
+
+    return 'Video 2.5 models 4 se 12 seconds tak support karte hain.';
+  }
+
+  return null;
+}
+
+function validateResolution(
+  videoModel,
+  resolution
+) {
+  const model =
+    getModelConfig(
+      videoModel
+    );
+
+  if (
+    !model.allowedResolutions.includes(
+      resolution
+    )
+  ) {
+    if (
+      videoModel ===
+      'agnes-video-2.5-flash'
+    ) {
+      return 'Video 2.5 Flash sirf 720P support karta hai.';
+    }
+
+    return 'Selected resolution is not supported by this Agnes model.';
   }
 
   return null;
@@ -352,18 +438,127 @@ function validateImageDataInput(
   return null;
 }
 
-/* --------------------------------------------------
-   PROMPT IDEAS
--------------------------------------------------- */
+function validateGenerationSettings(
+  body
+) {
+  const videoModel =
+    body.videoModel ||
+    VIDEO_CONFIG
+      .defaultModel;
+
+  const aspectRatio =
+    body.aspectRatio ||
+    VIDEO_CONFIG
+      .defaultAspectRatio;
+
+  const durationSeconds =
+    Number(
+      body.durationSeconds ??
+        VIDEO_CONFIG
+          .defaultDurationSeconds
+    );
+
+  /*
+   * Video 2.0 me resolution API parameter nahi hai.
+   * 720P value sirf frontend compatibility ke liye.
+   */
+  let resolution =
+    body.resolution ||
+    VIDEO_CONFIG
+      .defaultResolution;
+
+  if (
+    videoModel ===
+    'agnes-video-v2.0'
+  ) {
+    resolution =
+      '720P';
+  }
+
+  if (
+    videoModel ===
+    'agnes-video-2.5-flash'
+  ) {
+    resolution =
+      '720P';
+  }
+
+  const modelError =
+    validateVideoModel(
+      videoModel
+    );
+
+  if (modelError) {
+    return {
+      error:
+        modelError,
+    };
+  }
+
+  const aspectError =
+    validateAspectRatio(
+      aspectRatio
+    );
+
+  if (aspectError) {
+    return {
+      error:
+        aspectError,
+    };
+  }
+
+  const durationError =
+    validateDuration(
+      videoModel,
+      durationSeconds
+    );
+
+  if (durationError) {
+    return {
+      error:
+        durationError,
+    };
+  }
+
+  const resolutionError =
+    validateResolution(
+      videoModel,
+      resolution
+    );
+
+  if (resolutionError) {
+    return {
+      error:
+        resolutionError,
+    };
+  }
+
+  return {
+    videoModel,
+
+    aspectRatio,
+
+    durationSeconds,
+
+    resolution,
+
+    error:
+      null,
+  };
+}
+
+/* =========================================================
+   PROMPT API
+========================================================= */
 
 app.use(
   '/api/prompt',
   promptRouter
 );
 
-/* --------------------------------------------------
-   IMAGE HOST
--------------------------------------------------- */
+/* =========================================================
+   REFERENCE IMAGE SERVER
+========================================================= */
 
 app.get(
   '/api/images/:id',
@@ -407,9 +602,9 @@ app.get(
   }
 );
 
-/* --------------------------------------------------
-   HEALTH
--------------------------------------------------- */
+/* =========================================================
+   HEALTH / CONFIG
+========================================================= */
 
 app.get(
   '/api/health',
@@ -420,31 +615,28 @@ app.get(
         true,
 
       service:
-        'AI Blender Video Maker',
+        'AI Video Maker',
 
-      agnes:
+      agnesConfigured:
         Boolean(
           process.env
             .AGNES_API_KEY
         ),
 
-      gemini:
-        Boolean(
-          process.env
-            .GEMINI_API_KEY
-        ),
+      models:
+        VIDEO_MODELS,
 
-      model:
-        'agnes-video-v2.0',
-
-      frameRate:
-        VIDEO_CONFIG.frame_rate,
-
-      durations:
-        VIDEO_CONFIG.durations,
+      defaultModel:
+        VIDEO_CONFIG
+          .defaultModel,
 
       aspectRatios:
-        VIDEO_CONFIG.aspectRatios,
+        VIDEO_CONFIG
+          .aspectRatios,
+
+      legacyFrameRate:
+        VIDEO_CONFIG
+          .frame_rate,
 
       timeoutMinutes:
         MAX_JOB_TIME /
@@ -461,23 +653,28 @@ app.get(
       ok:
         true,
 
-      model:
-        'agnes-video-v2.0',
+      models:
+        VIDEO_MODELS,
+
+      defaultModel:
+        VIDEO_CONFIG
+          .defaultModel,
 
       defaultAspectRatio:
-        VIDEO_CONFIG.defaultAspectRatio,
-
-      aspectRatios:
-        VIDEO_CONFIG.aspectRatios,
+        VIDEO_CONFIG
+          .defaultAspectRatio,
 
       defaultDurationSeconds:
-        VIDEO_CONFIG.defaultDurationSeconds,
+        VIDEO_CONFIG
+          .defaultDurationSeconds,
 
-      durations:
-        VIDEO_CONFIG.durations,
+      defaultResolution:
+        VIDEO_CONFIG
+          .defaultResolution,
 
-      frame_rate:
-        VIDEO_CONFIG.frame_rate,
+      frameRate:
+        VIDEO_CONFIG
+          .frame_rate,
 
       maxRetries:
         MAX_RETRIES,
@@ -485,9 +682,9 @@ app.get(
   }
 );
 
-/* --------------------------------------------------
+/* =========================================================
    TEXT -> VIDEO
--------------------------------------------------- */
+========================================================= */
 
 app.post(
   '/api/generate',
@@ -498,15 +695,8 @@ app.post(
 
       qualityMode =
         'high',
-
-      aspectRatio =
-        VIDEO_CONFIG.defaultAspectRatio,
-
-      durationSeconds =
-        VIDEO_CONFIG.defaultDurationSeconds,
     } =
-      req.body ||
-      {};
+      req.body || {};
 
     const promptError =
       validatePrompt(
@@ -525,12 +715,12 @@ app.post(
         });
     }
 
-    const aspectError =
-      validateAspectRatio(
-        aspectRatio
+    const settings =
+      validateGenerationSettings(
+        req.body || {}
       );
 
-    if (aspectError) {
+    if (settings.error) {
       return res
         .status(400)
         .json({
@@ -538,31 +728,9 @@ app.post(
             false,
 
           error:
-            aspectError,
+            settings.error,
         });
     }
-
-    const durationError =
-      validateDuration(
-        durationSeconds
-      );
-
-    if (durationError) {
-      return res
-        .status(400)
-        .json({
-          ok:
-            false,
-
-          error:
-            durationError,
-        });
-    }
-
-    const selectedDuration =
-      Number(
-        durationSeconds
-      );
 
     const jobId =
       createJobId();
@@ -581,10 +749,17 @@ app.post(
 
         qualityMode,
 
-        aspectRatio,
+        videoModel:
+          settings.videoModel,
+
+        aspectRatio:
+          settings.aspectRatio,
 
         durationSeconds:
-          selectedDuration,
+          settings.durationSeconds,
+
+        resolution:
+          settings.resolution,
 
         status:
           'starting',
@@ -649,9 +824,9 @@ app.post(
   }
 );
 
-/* --------------------------------------------------
+/* =========================================================
    IMAGE -> VIDEO
--------------------------------------------------- */
+========================================================= */
 
 app.post(
   '/api/generate-image',
@@ -666,15 +841,8 @@ app.post(
 
       qualityMode =
         'high',
-
-      aspectRatio =
-        VIDEO_CONFIG.defaultAspectRatio,
-
-      durationSeconds =
-        VIDEO_CONFIG.defaultDurationSeconds,
     } =
-      req.body ||
-      {};
+      req.body || {};
 
     const promptError =
       validatePrompt(
@@ -693,12 +861,12 @@ app.post(
         });
     }
 
-    const aspectError =
-      validateAspectRatio(
-        aspectRatio
+    const settings =
+      validateGenerationSettings(
+        req.body || {}
       );
 
-    if (aspectError) {
+    if (settings.error) {
       return res
         .status(400)
         .json({
@@ -706,24 +874,7 @@ app.post(
             false,
 
           error:
-            aspectError,
-        });
-    }
-
-    const durationError =
-      validateDuration(
-        durationSeconds
-      );
-
-    if (durationError) {
-      return res
-        .status(400)
-        .json({
-          ok:
-            false,
-
-          error:
-            durationError,
+            settings.error,
         });
     }
 
@@ -778,11 +929,6 @@ app.post(
         });
     }
 
-    const selectedDuration =
-      Number(
-        durationSeconds
-      );
-
     const jobId =
       createJobId();
 
@@ -811,10 +957,17 @@ app.post(
 
         qualityMode,
 
-        aspectRatio,
+        videoModel:
+          settings.videoModel,
+
+        aspectRatio:
+          settings.aspectRatio,
 
         durationSeconds:
-          selectedDuration,
+          settings.durationSeconds,
+
+        resolution:
+          settings.resolution,
 
         status:
           'starting',
@@ -878,9 +1031,9 @@ app.post(
   }
 );
 
-/* --------------------------------------------------
-   TEXT JOB
--------------------------------------------------- */
+/* =========================================================
+   TEXT GENERATION
+========================================================= */
 
 async function generateTextJob(
   jobId
@@ -924,6 +1077,12 @@ async function generateTextJob(
 
           durationSeconds:
             job.durationSeconds,
+
+          modelId:
+            job.videoModel,
+
+          resolution:
+            job.resolution,
         }
       );
 
@@ -971,9 +1130,9 @@ async function generateTextJob(
   }
 }
 
-/* --------------------------------------------------
-   IMAGE JOB
--------------------------------------------------- */
+/* =========================================================
+   IMAGE GENERATION
+========================================================= */
 
 async function generateImageJob(
   jobId
@@ -1004,7 +1163,7 @@ async function generateImageJob(
     );
 
     const dimensions =
-      getVideoDimensions(
+      getReferenceImageDimensions(
         job.aspectRatio
       );
 
@@ -1072,7 +1231,7 @@ async function generateImageJob(
           error.message,
 
         hint:
-          'Chhoti PNG/JPG image try karein, ya backend/.env me IMGBB_API_KEY daalein.',
+          'Chhoti PNG/JPG image try karein.',
       }
     );
 
@@ -1093,7 +1252,7 @@ async function generateImageJob(
 
     try {
       console.log(
-        `[${jobId}] Agnes ko image bhej rahe hain (${candidate.host}): ${candidate.url}`
+        `[${jobId}] Agnes ${job.videoModel} ko image bhej rahe hain (${candidate.host})`
       );
 
       const result =
@@ -1113,6 +1272,12 @@ async function generateImageJob(
 
             durationSeconds:
               job.durationSeconds,
+
+            modelId:
+              job.videoModel,
+
+            resolution:
+              job.resolution,
           }
         );
 
@@ -1161,11 +1326,11 @@ async function generateImageJob(
         error;
 
       console.error(
-        `[${jobId}] ${candidate.host} se fail hua:`,
+        `[${jobId}] ${candidate.host} failed:`,
         error.message
       );
 
-      const canRetryElsewhere =
+      const canRetry =
         isImageDownloadError(
           error.message
         ) &&
@@ -1173,9 +1338,7 @@ async function generateImageJob(
           candidates.length -
             1;
 
-      if (
-        !canRetryElsewhere
-      ) {
+      if (!canRetry) {
         break;
       }
 
@@ -1190,15 +1353,14 @@ async function generateImageJob(
             4,
 
           error:
-            `${candidate.host} se image download nahi hui, doosra host try kar rahe hain...`,
+            `${candidate.host} fail hua, doosra image host try ho raha hai...`,
         }
       );
     }
   }
 
   const message =
-    lastError
-      ?.message ||
+    lastError?.message ||
     'Image-to-video request fail ho gayi.';
 
   updateJob(
@@ -1215,15 +1377,15 @@ async function generateImageJob(
         isImageDownloadError(
           message
         )
-          ? 'Agnes ka server is image URL tak nahi pahunch paaya. Image ko "Upload Image" se bhejein.'
+          ? 'Agnes image URL access nahi kar paaya. Uploaded image try karein.'
           : null,
     }
   );
 }
 
-/* --------------------------------------------------
-   POLL
--------------------------------------------------- */
+/* =========================================================
+   POLLING
+========================================================= */
 
 async function pollJob(
   jobId
@@ -1260,7 +1422,7 @@ async function pollJob(
             `Video generation ${
               MAX_JOB_TIME /
               60000
-            } minute me complete nahi hui (timeout).`,
+            } minute me complete nahi hui.`,
         }
       );
 
@@ -1286,9 +1448,14 @@ async function pollJob(
     }
 
     try {
+      /*
+       * Selected model polling me bhi pass hota hai.
+       */
       const result =
         await getVideoStatus(
-          job.agnesVideoId
+          job.agnesVideoId,
+
+          job.videoModel
         );
 
       consecutiveErrors =
@@ -1322,6 +1489,8 @@ async function pollJob(
       console.log(
         `[${jobId}]`,
 
+        job.videoModel,
+
         result.status,
 
         `${result.progress || 0}%`,
@@ -1335,14 +1504,29 @@ async function pollJob(
         result.status ===
         'completed'
       ) {
-        const durationConfig =
-          getDurationConfig(
-            job.durationSeconds
-          );
+        let expectedDuration;
 
-        const expectedDuration =
-          durationConfig.num_frames /
-          VIDEO_CONFIG.frame_rate;
+        if (
+          isLegacyModel(
+            job.videoModel
+          )
+        ) {
+          const durationConfig =
+            getLegacyDurationConfig(
+              job.durationSeconds
+            );
+
+          expectedDuration =
+            durationConfig
+              .num_frames /
+            VIDEO_CONFIG
+              .frame_rate;
+        } else {
+          expectedDuration =
+            Number(
+              job.durationSeconds
+            );
+        }
 
         const quality =
           await validateGeneratedVideo(
@@ -1394,9 +1578,12 @@ async function pollJob(
                   prompt: `${current.prompt}
 
 CORRECTION PASS:
-Make the motion simpler and more physically coherent.
-Prioritize stable geometry, identity, object continuity,
-natural motion and frame-to-frame consistency.`,
+Maintain the exact same subject identity and geometry.
+Use stable realistic physics.
+Avoid morphing, duplication, melting geometry,
+extra limbs, sudden object replacement,
+camera teleportation and flickering.
+Keep motion smooth and cinematic.`,
 
                   qualityMode:
                     current.qualityMode,
@@ -1409,6 +1596,12 @@ natural motion and frame-to-frame consistency.`,
 
                   durationSeconds:
                     current.durationSeconds,
+
+                  modelId:
+                    current.videoModel,
+
+                  resolution:
+                    current.resolution,
                 }
               );
 
@@ -1529,9 +1722,9 @@ natural motion and frame-to-frame consistency.`,
   }
 }
 
-/* --------------------------------------------------
-   STATUS
--------------------------------------------------- */
+/* =========================================================
+   STATUS API
+========================================================= */
 
 app.get(
   '/api/status/:jobId',
@@ -1565,9 +1758,9 @@ app.get(
   }
 );
 
-/* --------------------------------------------------
+/* =========================================================
    FRONTEND
--------------------------------------------------- */
+========================================================= */
 
 const FRONTEND_DIST =
   path.join(
@@ -1654,7 +1847,7 @@ app.use(
             false,
 
           error:
-            'Image/request bahut bada hai. 12 MB se chhoti image use karein.',
+            'Image/request bahut bada hai.',
         });
     }
 
@@ -1671,6 +1864,10 @@ app.use(
   }
 );
 
+/* =========================================================
+   START
+========================================================= */
+
 if (
   require.main ===
   module
@@ -1680,47 +1877,48 @@ if (
 
     () => {
       console.log('');
-      console.log('======================================');
-      console.log(' AI Blender Video Maker');
-      console.log('======================================');
-
       console.log(
-        `Server:       http://localhost:${PORT}`
+        '======================================'
+      );
+      console.log(
+        ' AI Video Maker'
+      );
+      console.log(
+        '======================================'
       );
 
       console.log(
-        'Model:        agnes-video-v2.0'
+        `Server: http://localhost:${PORT}`
       );
 
       console.log(
-        `FPS:          ${VIDEO_CONFIG.frame_rate}`
+        'Supported models:'
+      );
+
+      Object.values(
+        VIDEO_MODELS
+      ).forEach(
+        (model) => {
+          console.log(
+            ` - ${model.id} (${model.freeLabel})`
+          );
+        }
       );
 
       console.log(
-        'Durations:    12 sec = 289 frames, 18 sec = 433 frames'
+        `Video 2.0 FPS: ${VIDEO_CONFIG.frame_rate}`
       );
 
       console.log(
-        'Formats:     ',
-        Object.entries(
-          VIDEO_CONFIG.aspectRatios
-        )
-          .map(
-            ([
-              ratio,
-              size,
-            ]) =>
-              `${ratio}=${size.width}x${size.height}`
-          )
-          .join(', ')
+        'Video 2.0 durations: 12s / 18s'
       );
 
       console.log(
-        'Image input:  UPLOAD / CTRL+V / URL'
+        'Video 2.5 durations: 4s - 12s'
       );
 
       console.log(
-        'Prompt Ideas: /api/prompt/* mounted'
+        'Video 2.5 Flash: 720P only'
       );
 
       if (
@@ -1734,7 +1932,9 @@ if (
 
       logPromptStartupState();
 
-      console.log('======================================');
+      console.log(
+        '======================================'
+      );
       console.log('');
     }
   );

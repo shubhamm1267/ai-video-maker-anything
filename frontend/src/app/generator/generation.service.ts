@@ -1,10 +1,18 @@
-import { Injectable } from '@angular/core';
+import {
+  Injectable,
+} from '@angular/core';
 
-import { HttpClient } from '@angular/common/http';
+import {
+  HttpClient,
+} from '@angular/common/http';
 
-import { Observable } from 'rxjs';
+import {
+  Observable,
+} from 'rxjs';
 
-import { VIDEO_API_BASE } from '../shared/api.config';
+import {
+  VIDEO_API_BASE,
+} from '../shared/api.config';
 
 export type QualityMode =
   | 'standard'
@@ -14,7 +22,26 @@ export type AspectRatio =
   | '9:16'
   | '16:9';
 
+export type AgnesVideoModel =
+  | 'agnes-video-v2.0'
+  | 'agnes-video-2.5'
+  | 'agnes-video-2.5-flash';
+
+export type VideoResolution =
+  | '720P'
+  | '1080P'
+  | '1K'
+  | '2K';
+
 export type VideoDuration =
+  | 4
+  | 5
+  | 6
+  | 7
+  | 8
+  | 9
+  | 10
+  | 11
   | 12
   | 18;
 
@@ -31,7 +58,8 @@ export type GenerationStatus =
   | string;
 
 export interface GenerationJob {
-  jobId: string;
+  jobId:
+    string;
 
   type?:
     | 'text'
@@ -70,8 +98,14 @@ export interface GenerationJob {
   durationSeconds?:
     VideoDuration | number;
 
+  videoModel?:
+    AgnesVideoModel | string;
+
+  resolution?:
+    VideoResolution | string;
+
   frameRate?:
-    number;
+    number | null;
 }
 
 @Injectable({
@@ -88,7 +122,8 @@ export class GenerationService {
   ) {}
 
   submitGeneration(
-    prompt: string,
+    prompt:
+      string,
 
     qualityMode:
       QualityMode,
@@ -97,7 +132,13 @@ export class GenerationService {
       AspectRatio,
 
     durationSeconds:
-      VideoDuration
+      VideoDuration,
+
+    videoModel:
+      AgnesVideoModel,
+
+    resolution:
+      VideoResolution
   ): Observable<GenerationJob> {
     return this.http.post<GenerationJob>(
       `${this.apiBase}/generate`,
@@ -110,6 +151,10 @@ export class GenerationService {
         aspectRatio,
 
         durationSeconds,
+
+        videoModel,
+
+        resolution,
       }
     );
   }
@@ -131,7 +176,13 @@ export class GenerationService {
       AspectRatio,
 
     durationSeconds:
-      VideoDuration
+      VideoDuration,
+
+    videoModel:
+      AgnesVideoModel,
+
+    resolution:
+      VideoResolution
   ): Observable<GenerationJob> {
     return this.http.post<GenerationJob>(
       `${this.apiBase}/generate-image`,
@@ -150,12 +201,17 @@ export class GenerationService {
         aspectRatio,
 
         durationSeconds,
+
+        videoModel,
+
+        resolution,
       }
     );
   }
 
   pollStatus(
-    jobId: string
+    jobId:
+      string
   ): Observable<GenerationJob> {
     return this.http.get<GenerationJob>(
       `${this.apiBase}/status/${jobId}`

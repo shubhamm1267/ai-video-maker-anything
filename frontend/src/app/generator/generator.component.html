@@ -9,12 +9,14 @@
       </h1>
 
       <p>
-        Create realistic AI videos with Agnes AI.
+        Create AI videos using Agnes AI.
       </p>
 
     </div>
 
-    <!-- MODE -->
+    <!-- ===============================================
+         MODE
+    ================================================ -->
 
     <div class="mode-tabs">
 
@@ -36,7 +38,9 @@
 
     </div>
 
-    <!-- PROMPT -->
+    <!-- ===============================================
+         PROMPT
+    ================================================ -->
 
     <div class="field">
 
@@ -52,13 +56,18 @@
       ></textarea>
 
       <div class="hint">
-        Describe the subject, movement, environment,
-        camera movement and final action clearly.
+
+        Subject, action, environment,
+        camera movement, lighting and final
+        result clearly describe karein.
+
       </div>
 
     </div>
 
-    <!-- IMAGE -->
+    <!-- ===============================================
+         IMAGE
+    ================================================ -->
 
     <div
       class="image-section"
@@ -71,7 +80,7 @@
 
       <div class="source-info">
 
-        Use any one:
+        Use:
 
         <b>Upload</b>,
 
@@ -109,8 +118,6 @@
           <strong>
             Ctrl + V
           </strong>
-
-          to paste an image
 
         </span>
 
@@ -160,18 +167,6 @@
           [disabled]="loading || !!imageData"
         />
 
-        <div class="hint">
-
-          Public
-
-          <b>
-            direct image link
-          </b>
-
-          use karein.
-
-        </div>
-
         <div
           class="hint warning"
           *ngIf="urlWarning"
@@ -193,7 +188,145 @@
 
     </div>
 
-    <!-- VIDEO FORMAT -->
+    <!-- ===============================================
+         AGNES MODEL
+    ================================================ -->
+
+    <div class="field">
+
+      <label>
+        Agnes Video Model
+      </label>
+
+      <div class="ratio-options">
+
+        <!-- VIDEO 2.0 -->
+
+        <button
+          type="button"
+          class="ratio-option"
+          [class.active]="videoModel === 'agnes-video-v2.0'"
+          (click)="selectVideoModel('agnes-video-v2.0')"
+          [disabled]="loading"
+        >
+
+          <span class="ratio-copy">
+
+            <strong>
+              Video 2.0
+            </strong>
+
+            <small>
+              Free promo · 12s / 18s
+            </small>
+
+          </span>
+
+        </button>
+
+        <!-- VIDEO 2.5 -->
+
+        <button
+          type="button"
+          class="ratio-option"
+          [class.active]="videoModel === 'agnes-video-2.5'"
+          (click)="selectVideoModel('agnes-video-2.5')"
+          [disabled]="loading"
+        >
+
+          <span class="ratio-copy">
+
+            <strong>
+              Video 2.5
+            </strong>
+
+            <small>
+              Paid · 4–12s · up to 2K
+            </small>
+
+          </span>
+
+        </button>
+
+        <!-- VIDEO 2.5 FLASH -->
+
+        <button
+          type="button"
+          class="ratio-option"
+          [class.active]="videoModel === 'agnes-video-2.5-flash'"
+          (click)="selectVideoModel('agnes-video-2.5-flash')"
+          [disabled]="loading"
+        >
+
+          <span class="ratio-copy">
+
+            <strong>
+              Video 2.5 Flash
+            </strong>
+
+            <small>
+              Free promo now · 720P
+            </small>
+
+          </span>
+
+        </button>
+
+      </div>
+
+      <!-- MODEL INFORMATION -->
+
+      <div
+        class="hint"
+        *ngIf="isVideo20"
+      >
+
+        <b>Video 2.0:</b>
+
+        24 FPS fixed in this app.
+
+        12 seconds = 289 frames.
+
+        18 seconds = 433 frames.
+
+      </div>
+
+      <div
+        class="hint"
+        *ngIf="isVideo25"
+      >
+
+        <b>Video 2.5:</b>
+
+        Newer model.
+
+        Supports 4–12 seconds and
+        720P / 1080P / 1K / 2K.
+
+        This model is paid.
+
+      </div>
+
+      <div
+        class="hint warning"
+        *ngIf="isVideo25Flash"
+      >
+
+        <b>Video 2.5 Flash:</b>
+
+        Currently free promotional pricing.
+
+        Only 720P supported.
+
+        Free queue may sometimes be busy.
+
+      </div>
+
+    </div>
+
+    <!-- ===============================================
+         VIDEO FORMAT
+    ================================================ -->
 
     <div class="field">
 
@@ -222,7 +355,7 @@
             </strong>
 
             <small>
-              9:16 · 720 × 1280
+              9:16 vertical
             </small>
 
           </span>
@@ -248,7 +381,7 @@
             </strong>
 
             <small>
-              16:9 · 1280 × 720
+              16:9 landscape
             </small>
 
           </span>
@@ -259,7 +392,9 @@
 
     </div>
 
-    <!-- VIDEO DURATION -->
+    <!-- ===============================================
+         VIDEO DURATION
+    ================================================ -->
 
     <div class="field">
 
@@ -270,72 +405,128 @@
       <div class="ratio-options">
 
         <button
+          *ngFor="let seconds of durationOptions"
           type="button"
           class="ratio-option"
-          [class.active]="durationSeconds === 12"
-          (click)="durationSeconds = 12"
+          [class.active]="durationSeconds === seconds"
+          (click)="durationSeconds = seconds"
           [disabled]="loading"
         >
 
           <span class="ratio-copy">
 
             <strong>
-              12 Seconds
+              {{ seconds }} Seconds
             </strong>
 
-            <small>
+            <small
+              *ngIf="
+                isVideo20 &&
+                seconds === 12
+              "
+            >
               289 frames · 24 FPS
             </small>
 
-          </span>
-
-        </button>
-
-        <button
-          type="button"
-          class="ratio-option"
-          [class.active]="durationSeconds === 18"
-          (click)="durationSeconds = 18"
-          [disabled]="loading"
-        >
-
-          <span class="ratio-copy">
-
-            <strong>
-              18 Seconds
-            </strong>
-
-            <small>
+            <small
+              *ngIf="
+                isVideo20 &&
+                seconds === 18
+              "
+            >
               433 frames · 24 FPS
+            </small>
+
+            <small
+              *ngIf="!isVideo20"
+            >
+              Native model duration
             </small>
 
           </span>
 
         </button>
-
-      </div>
-
-      <div class="hint">
-
-        Dono durations me
-
-        <b>24 FPS</b>
-
-        hi use hoga.
-
-        18-second video ko stretch nahi kiya jayega —
-        Agnes ko actual 433 frames generate karne ke liye bheja jayega.
 
       </div>
 
     </div>
 
-    <!-- QUALITY -->
+    <!-- ===============================================
+         RESOLUTION
+    ================================================ -->
 
     <div class="field">
 
       <label>
-        Quality
+        Video Resolution
+      </label>
+
+      <!-- 2.0 -->
+
+      <div
+        class="hint"
+        *ngIf="isVideo20"
+      >
+
+        Video 2.0 output resolution is
+        controlled automatically by the
+        selected aspect ratio:
+
+        <b>
+          9:16 = 720×1280
+        </b>
+
+        and
+
+        <b>
+          16:9 = 1280×720
+        </b>.
+
+      </div>
+
+      <!-- 2.5 -->
+
+      <select
+        *ngIf="isVideo25"
+        [(ngModel)]="resolution"
+        [disabled]="loading"
+      >
+
+        <option
+          *ngFor="let item of resolutionOptions"
+          [ngValue]="item"
+        >
+          {{ item }}
+        </option>
+
+      </select>
+
+      <!-- FLASH -->
+
+      <div
+        class="hint"
+        *ngIf="isVideo25Flash"
+      >
+
+        <b>
+          720P
+        </b>
+
+        — Video 2.5 Flash currently
+        supports 720P only.
+
+      </div>
+
+    </div>
+
+    <!-- ===============================================
+         QUALITY
+    ================================================ -->
+
+    <div class="field">
+
+      <label>
+        Prompt Quality
       </label>
 
       <select
@@ -353,9 +544,58 @@
 
       </select>
 
+      <div class="hint">
+
+        Ye option prompt optimisation ko
+        control karta hai.
+
+      </div>
+
     </div>
 
-    <!-- ERROR -->
+    <!-- ===============================================
+         SELECTED SETTINGS
+    ================================================ -->
+
+    <div class="field">
+
+      <div class="hint">
+
+        Selected:
+
+        <b>
+          {{ selectedModelLabel }}
+        </b>
+
+        ·
+
+        <b>
+          {{ durationSeconds }} sec
+        </b>
+
+        ·
+
+        <b>
+          {{ aspectRatio }}
+        </b>
+
+        <span *ngIf="!isVideo20">
+
+          ·
+
+          <b>
+            {{ resolution }}
+          </b>
+
+        </span>
+
+      </div>
+
+    </div>
+
+    <!-- ===============================================
+         ERROR
+    ================================================ -->
 
     <div
       class="error"
@@ -373,7 +613,9 @@
 
     </div>
 
-    <!-- BUTTON -->
+    <!-- ===============================================
+         GENERATE BUTTON
+    ================================================ -->
 
     <button
       type="button"
@@ -385,17 +627,23 @@
       <span *ngIf="!loading">
 
         Generate
-        {{ durationSeconds }}s Video
+        {{ durationSeconds }}s
+        Video
 
       </span>
 
       <span *ngIf="loading">
-        Generating...
+
+        Generating with
+        {{ selectedModelLabel }}...
+
       </span>
 
     </button>
 
-    <!-- PROGRESS -->
+    <!-- ===============================================
+         PROGRESS
+    ================================================ -->
 
     <div
       class="progress-section"
@@ -423,10 +671,17 @@
 
       </div>
 
-      <p
-        class="retry-text"
-        *ngIf="job.aspectRatio"
-      >
+      <p class="retry-text">
+
+        Model:
+
+        <b>
+          {{ job.videoModel }}
+        </b>
+
+      </p>
+
+      <p class="retry-text">
 
         Format:
 
@@ -436,10 +691,7 @@
 
       </p>
 
-      <p
-        class="retry-text"
-        *ngIf="job.durationSeconds"
-      >
+      <p class="retry-text">
 
         Duration:
 
@@ -454,10 +706,26 @@
         *ngIf="job.frameRate"
       >
 
-        Frame rate:
+        FPS:
 
         <b>
-          {{ job.frameRate }} FPS
+          {{ job.frameRate }}
+        </b>
+
+      </p>
+
+      <p
+        class="retry-text"
+        *ngIf="
+          job.resolution &&
+          job.videoModel !== 'agnes-video-v2.0'
+        "
+      >
+
+        Resolution:
+
+        <b>
+          {{ job.resolution }}
         </b>
 
       </p>
@@ -466,8 +734,11 @@
         class="retry-text"
         *ngIf="job.imageHost"
       >
-        Reference image host:
+
+        Image host:
+
         {{ job.imageHost }}
+
       </p>
 
       <p
@@ -487,7 +758,9 @@
 
     </div>
 
-    <!-- RESULT -->
+    <!-- ===============================================
+         RESULT
+    ================================================ -->
 
     <div
       class="video-result"
