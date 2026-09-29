@@ -9,13 +9,12 @@
       </h1>
 
       <p>
-        Create realistic AI videos with
-        Agnes AI.
+        Create realistic AI videos with Agnes AI.
       </p>
 
     </div>
 
-    <!-- MODE TABS -->
+    <!-- MODE -->
 
     <div class="mode-tabs">
 
@@ -53,15 +52,13 @@
       ></textarea>
 
       <div class="hint">
-        Example: A man slowly walks through
-        a rainy city street, natural body
-        movement, realistic physics, smooth
-        camera movement.
+        Describe the subject, movement, environment,
+        camera movement and final action clearly.
       </div>
 
     </div>
 
-    <!-- IMAGE INPUT -->
+    <!-- IMAGE -->
 
     <div
       class="image-section"
@@ -70,11 +67,6 @@
 
       <label>
         Reference Image
-
-        <span class="optional">
-          — optional individually
-        </span>
-
       </label>
 
       <div class="source-info">
@@ -83,15 +75,13 @@
 
         <b>Upload</b>,
 
-        <b>Ctrl + V</b>,
+        <b>Ctrl + V</b>
 
         or
 
         <b>Image URL</b>.
 
       </div>
-
-      <!-- UPLOAD -->
 
       <div class="upload-box">
 
@@ -126,8 +116,6 @@
 
       </div>
 
-      <!-- IMAGE PREVIEW -->
-
       <div
         class="image-preview"
         *ngIf="imagePreview"
@@ -156,8 +144,6 @@
 
       </div>
 
-      <!-- URL -->
-
       <div class="url-section">
 
         <div class="or-line">
@@ -170,7 +156,7 @@
           type="url"
           [(ngModel)]="imageUrl"
           (ngModelChange)="onImageUrlChange()"
-          placeholder="https://example.com/character.png"
+          placeholder="https://example.com/image.png"
           [disabled]="loading || !!imageData"
         />
 
@@ -182,10 +168,7 @@
             direct image link
           </b>
 
-          daalein
-          (URL .jpg / .png par khatam ho).
-
-          Upload ki hui image ko priority milti hai.
+          use karein.
 
         </div>
 
@@ -220,8 +203,6 @@
 
       <div class="ratio-options">
 
-        <!-- SHORT / VERTICAL -->
-
         <button
           type="button"
           class="ratio-option"
@@ -241,14 +222,12 @@
             </strong>
 
             <small>
-              9:16 · vertical
+              9:16 · 720 × 1280
             </small>
 
           </span>
 
         </button>
-
-        <!-- LONG / LANDSCAPE -->
 
         <button
           type="button"
@@ -269,7 +248,65 @@
             </strong>
 
             <small>
-              16:9 · landscape
+              16:9 · 1280 × 720
+            </small>
+
+          </span>
+
+        </button>
+
+      </div>
+
+    </div>
+
+    <!-- VIDEO DURATION -->
+
+    <div class="field">
+
+      <label>
+        Video Duration
+      </label>
+
+      <div class="ratio-options">
+
+        <button
+          type="button"
+          class="ratio-option"
+          [class.active]="durationSeconds === 12"
+          (click)="durationSeconds = 12"
+          [disabled]="loading"
+        >
+
+          <span class="ratio-copy">
+
+            <strong>
+              12 Seconds
+            </strong>
+
+            <small>
+              289 frames · 24 FPS
+            </small>
+
+          </span>
+
+        </button>
+
+        <button
+          type="button"
+          class="ratio-option"
+          [class.active]="durationSeconds === 18"
+          (click)="durationSeconds = 18"
+          [disabled]="loading"
+        >
+
+          <span class="ratio-copy">
+
+            <strong>
+              18 Seconds
+            </strong>
+
+            <small>
+              433 frames · 24 FPS
             </small>
 
           </span>
@@ -280,13 +317,14 @@
 
       <div class="hint">
 
-        Shorts, Reels aur TikTok ke liye
+        Dono durations me
 
-        <b>9:16</b>.
+        <b>24 FPS</b>
 
-        Normal YouTube / landscape video ke liye
+        hi use hoga.
 
-        <b>16:9</b>.
+        18-second video ko stretch nahi kiya jayega —
+        Agnes ko actual 433 frames generate karne ke liye bheja jayega.
 
       </div>
 
@@ -335,7 +373,7 @@
 
     </div>
 
-    <!-- GENERATE -->
+    <!-- BUTTON -->
 
     <button
       type="button"
@@ -345,7 +383,10 @@
     >
 
       <span *ngIf="!loading">
-        Generate Video
+
+        Generate
+        {{ durationSeconds }}s Video
+
       </span>
 
       <span *ngIf="loading">
@@ -384,18 +425,49 @@
 
       <p
         class="retry-text"
-        *ngIf="job.imageHost"
+        *ngIf="job.aspectRatio"
       >
-        Reference image host:
-        {{ job.imageHost }}
+
+        Format:
+
+        <b>
+          {{ job.aspectRatio }}
+        </b>
+
       </p>
 
       <p
         class="retry-text"
-        *ngIf="job.aspectRatio"
+        *ngIf="job.durationSeconds"
       >
-        Video format:
-        {{ job.aspectRatio }}
+
+        Duration:
+
+        <b>
+          {{ job.durationSeconds }} seconds
+        </b>
+
+      </p>
+
+      <p
+        class="retry-text"
+        *ngIf="job.frameRate"
+      >
+
+        Frame rate:
+
+        <b>
+          {{ job.frameRate }} FPS
+        </b>
+
+      </p>
+
+      <p
+        class="retry-text"
+        *ngIf="job.imageHost"
+      >
+        Reference image host:
+        {{ job.imageHost }}
       </p>
 
       <p
@@ -415,29 +487,7 @@
 
     </div>
 
-    <!-- ERROR FROM JOB -->
-
-    <div
-      class="error"
-      *ngIf="
-        job?.status === 'failed' &&
-        job?.error &&
-        job?.error !== errorMessage
-      "
-    >
-
-      {{ job?.error }}
-
-      <div
-        class="error-hint"
-        *ngIf="job?.hint"
-      >
-        {{ job?.hint }}
-      </div>
-
-    </div>
-
-    <!-- VIDEO -->
+    <!-- RESULT -->
 
     <div
       class="video-result"

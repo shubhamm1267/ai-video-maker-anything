@@ -24,6 +24,7 @@ import {
   GenerationJob,
   GenerationService,
   QualityMode,
+  VideoDuration,
 } from './generation.service';
 
 import { PromptBridgeService } from '../shared/prompt-bridge.service';
@@ -76,12 +77,25 @@ export class GeneratorComponent
     'high';
 
   /*
-   * Default video format:
-   * Shorts / Reels / TikTok = 9:16
+   * Default:
+   * Vertical Shorts
    */
   aspectRatio:
     AspectRatio =
     '9:16';
+
+  /*
+   * Default video duration.
+   *
+   * 12 sec:
+   * 289 frames @ 24 FPS
+   *
+   * 18 sec:
+   * 433 frames @ 24 FPS
+   */
+  durationSeconds:
+    VideoDuration =
+    12;
 
   job:
     GenerationJob | null =
@@ -96,9 +110,6 @@ export class GeneratorComponent
   errorHint =
     '';
 
-  /**
-   * Share links ke liye warning.
-   */
   urlWarning =
     '';
 
@@ -174,9 +185,6 @@ export class GeneratorComponent
       '';
   }
 
-  /*
-   * Ctrl + V image support
-   */
   @HostListener(
     'document:paste',
     ['$event']
@@ -274,9 +282,6 @@ export class GeneratorComponent
     this.imageFileName =
       file.name;
 
-    /*
-     * Upload ki hui image URL se zyada priority rakhti hai.
-     */
     this.imageUrl =
       '';
 
@@ -350,7 +355,7 @@ export class GeneratorComponent
       )
     ) {
       this.urlWarning =
-        'Google Photos links se image download nahi hoti. Image download karke "Upload Image" use karein.';
+        'Google Photos links se image download nahi hoti. Image download karke Upload Image use karein.';
 
       return;
     }
@@ -361,7 +366,7 @@ export class GeneratorComponent
       )
     ) {
       this.urlWarning =
-        'Google Drive link ko server direct-download link me badal dega, par file ka access "Anyone with the link" hona zaroori hai. Upload karna zyada safe hai.';
+        'Google Drive file ka access Anyone with the link hona chahiye. Upload karna zyada safe hai.';
 
       return;
     }
@@ -372,7 +377,7 @@ export class GeneratorComponent
       )
     ) {
       this.urlWarning =
-        'Social media page links image file nahi hote. Image par right-click -> "Copy image address" karein.';
+        'Social media page links image file nahi hote. Direct image URL use karein.';
     }
   }
 
@@ -508,7 +513,9 @@ export class GeneratorComponent
 
         this.qualityMode,
 
-        this.aspectRatio
+        this.aspectRatio,
+
+        this.durationSeconds
       )
       .subscribe({
         next:
@@ -550,7 +557,9 @@ export class GeneratorComponent
 
         this.qualityMode,
 
-        this.aspectRatio
+        this.aspectRatio,
+
+        this.durationSeconds
       )
       .subscribe({
         next:
@@ -655,7 +664,7 @@ export class GeneratorComponent
         'Backend tak pahunch nahi paaye. Kya backend server chal raha hai?';
 
       this.errorHint =
-        'start.bat / npm run dev se dono servers chalte hain.';
+        'npm run dev se dono servers chala kar check karein.';
 
       return;
     }

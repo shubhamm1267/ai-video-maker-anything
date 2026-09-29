@@ -16,6 +16,7 @@ const {
   isImageDownloadError,
   VIDEO_CONFIG,
   getVideoDimensions,
+  getDurationConfig,
 } = require('./agnes-video');
 
 const {
@@ -30,12 +31,6 @@ const {
   MAX_IMAGE_BYTES,
 } = require('./image-host');
 
-/*
- * FIX: Prompt Ideas page pehle isliye kaam nahi kar raha tha
- * kyunki server.js me prompt router mount hi nahi tha —
- * /api/prompt/generate hamesha 404 "API endpoint not found"
- * deta tha. Ab mount hai (neeche app.use('/api/prompt', ...)).
- */
 const {
   promptRouter,
   logPromptStartupState,
@@ -53,7 +48,6 @@ const PORT =
 const jobs =
   new Map();
 
-/* 289 frames @ 24fps lambi video hai - 5 min aksar kam padta tha. */
 const MAX_JOB_TIME =
   Number(
     process.env
@@ -179,6 +173,13 @@ function clientJob(
       job.aspectRatio ||
       VIDEO_CONFIG.defaultAspectRatio,
 
+    durationSeconds:
+      job.durationSeconds ||
+      VIDEO_CONFIG.defaultDurationSeconds,
+
+    frameRate:
+      VIDEO_CONFIG.frame_rate,
+
     imageHost:
       job.imageHost ||
       null,
@@ -246,6 +247,25 @@ function validateAspectRatio(
       .aspectRatios[value]
   ) {
     return 'Video format invalid hai. Sirf 9:16 ya 16:9 select karein.';
+  }
+
+  return null;
+}
+
+function validateDuration(
+  durationSeconds
+) {
+  const duration =
+    Number(
+      durationSeconds ??
+        VIDEO_CONFIG.defaultDurationSeconds
+    );
+
+  if (
+    !VIDEO_CONFIG
+      .durations[duration]
+  ) {
+    return 'Video duration invalid hai. Sirf 12 sec ya 18 sec select karein.';
   }
 
   return null;
@@ -333,7 +353,7 @@ function validateImageDataInput(
 }
 
 /* --------------------------------------------------
-   PROMPT IDEAS (Gemini)
+   PROMPT IDEAS
 -------------------------------------------------- */
 
 app.use(
@@ -342,7 +362,7 @@ app.use(
 );
 
 /* --------------------------------------------------
-   LOCALLY HOSTED REFERENCE IMAGES
+   IMAGE HOST
 -------------------------------------------------- */
 
 app.get(
@@ -388,7 +408,7 @@ app.get(
 );
 
 /* --------------------------------------------------
-   HEALTH / CONFIG
+   HEALTH
 -------------------------------------------------- */
 
 app.get(
@@ -417,28 +437,18 @@ app.get(
       model:
         'agnes-video-v2.0',
 
-      imageInput:
-        'Upload, Ctrl+V paste or public URL',
+      frameRate:
+        VIDEO_CONFIG.frame_rate,
 
-      imageRelay: {
-        publicBaseUrl:
-          process.env
-            .PUBLIC_BASE_URL ||
-          null,
+      durations:
+        VIDEO_CONFIG.durations,
 
-        imgbbConfigured:
-          Boolean(
-            process.env
-              .IMGBB_API_KEY
-          ),
-      },
+      aspectRatios:
+        VIDEO_CONFIG.aspectRatios,
 
       timeoutMinutes:
         MAX_JOB_TIME /
         60000,
-
-      video:
-        VIDEO_CONFIG,
     });
   }
 );
@@ -460,14 +470,13 @@ app.get(
       aspectRatios:
         VIDEO_CONFIG.aspectRatios,
 
-      num_frames:
-        VIDEO_CONFIG.num_frames,
+      defaultDurationSeconds:
+        VIDEO_CONFIG.defaultDurationSeconds,
+
+      durations:
+        VIDEO_CONFIG.durations,
 
       frame_rate:
-        VIDEO_CONFIG.frame_rate,
-
-      durationSeconds:
-        VIDEO_CONFIG.num_frames /
         VIDEO_CONFIG.frame_rate,
 
       maxRetries:
@@ -492,6 +501,9 @@ app.post(
 
       aspectRatio =
         VIDEO_CONFIG.defaultAspectRatio,
+
+      durationSeconds =
+        VIDEO_CONFIG.defaultDurationSeconds,
     } =
       req.body ||
       {};
@@ -530,6 +542,28 @@ app.post(
         });
     }
 
+    const durationError =
+      validateDuration(
+        durationSeconds
+      );
+
+    if (durationError) {
+      return res
+        .status(400)
+        .json({
+          ok:
+            false,
+
+          error:
+            durationError,
+        });
+    }
+
+    const selectedDuration =
+      Number(
+        durationSeconds
+      );
+
     const jobId =
       createJobId();
 
@@ -548,6 +582,9 @@ app.post(
         qualityMode,
 
         aspectRatio,
+
+        durationSeconds:
+          selectedDuration,
 
         status:
           'starting',
@@ -632,6 +669,9 @@ app.post(
 
       aspectRatio =
         VIDEO_CONFIG.defaultAspectRatio,
+
+      durationSeconds =
+        VIDEO_CONFIG.defaultDurationSeconds,
     } =
       req.body ||
       {};
@@ -667,6 +707,23 @@ app.post(
 
           error:
             aspectError,
+        });
+    }
+
+    const durationError =
+      validateDuration(
+        durationSeconds
+      );
+
+    if (durationError) {
+      return res
+        .status(400)
+        .json({
+          ok:
+            false,
+
+          error:
+            durationError,
         });
     }
 
@@ -721,6 +778,11 @@ app.post(
         });
     }
 
+    const selectedDuration =
+      Number(
+        durationSeconds
+      );
+
     const jobId =
       createJobId();
 
@@ -750,6 +812,9 @@ app.post(
         qualityMode,
 
         aspectRatio,
+
+        durationSeconds:
+          selectedDuration,
 
         status:
           'starting',
@@ -856,6 +921,9 @@ async function generateTextJob(
 
           aspectRatio:
             job.aspectRatio,
+
+          durationSeconds:
+            job.durationSeconds,
         }
       );
 
@@ -1042,6 +1110,9 @@ async function generateImageJob(
 
             aspectRatio:
               job.aspectRatio,
+
+            durationSeconds:
+              job.durationSeconds,
           }
         );
 
@@ -1144,7 +1215,7 @@ async function generateImageJob(
         isImageDownloadError(
           message
         )
-          ? 'Agnes ka server is image URL tak nahi pahunch paaya. Image ko "Upload Image" se bhejein (Google Drive/Photos links kaam nahi karte), ya .env me IMGBB_API_KEY add karein.'
+          ? 'Agnes ka server is image URL tak nahi pahunch paaya. Image ko "Upload Image" se bhejein.'
           : null,
     }
   );
@@ -1264,15 +1335,22 @@ async function pollJob(
         result.status ===
         'completed'
       ) {
+        const durationConfig =
+          getDurationConfig(
+            job.durationSeconds
+          );
+
+        const expectedDuration =
+          durationConfig.num_frames /
+          VIDEO_CONFIG.frame_rate;
+
         const quality =
           await validateGeneratedVideo(
             {
               videoUrl:
                 result.videoUrl,
 
-              expectedDuration:
-                VIDEO_CONFIG.num_frames /
-                VIDEO_CONFIG.frame_rate,
+              expectedDuration,
             }
           );
 
@@ -1328,6 +1406,9 @@ natural motion and frame-to-frame consistency.`,
 
                   aspectRatio:
                     current.aspectRatio,
+
+                  durationSeconds:
+                    current.durationSeconds,
                 }
               );
 
@@ -1485,7 +1566,7 @@ app.get(
 );
 
 /* --------------------------------------------------
-   OPTIONAL: built frontend serve karo
+   FRONTEND
 -------------------------------------------------- */
 
 const FRONTEND_DIST =
@@ -1508,10 +1589,6 @@ app.use(
     FRONTEND_DIST
   )
 );
-
-/* --------------------------------------------------
-   404
--------------------------------------------------- */
 
 app.use(
   (req, res) => {
@@ -1554,10 +1631,6 @@ app.use(
   }
 );
 
-/* --------------------------------------------------
-   ERROR HANDLER
--------------------------------------------------- */
-
 app.use(
   (
     error,
@@ -1598,10 +1671,6 @@ app.use(
   }
 );
 
-/* --------------------------------------------------
-   START
--------------------------------------------------- */
-
 if (
   require.main ===
   module
@@ -1610,21 +1679,10 @@ if (
     PORT,
 
     () => {
-      console.log(
-        ''
-      );
-
-      console.log(
-        '======================================'
-      );
-
-      console.log(
-        ' AI Blender Video Maker'
-      );
-
-      console.log(
-        '======================================'
-      );
+      console.log('');
+      console.log('======================================');
+      console.log(' AI Blender Video Maker');
+      console.log('======================================');
 
       console.log(
         `Server:       http://localhost:${PORT}`
@@ -1635,8 +1693,15 @@ if (
       );
 
       console.log(
-        'Formats:     ',
+        `FPS:          ${VIDEO_CONFIG.frame_rate}`
+      );
 
+      console.log(
+        'Durations:    12 sec = 289 frames, 18 sec = 433 frames'
+      );
+
+      console.log(
+        'Formats:     ',
         Object.entries(
           VIDEO_CONFIG.aspectRatios
         )
@@ -1647,57 +1712,11 @@ if (
             ]) =>
               `${ratio}=${size.width}x${size.height}`
           )
-          .join(
-            ', '
-          )
-      );
-
-      console.log(
-        'Frames:      ',
-        VIDEO_CONFIG.num_frames
-      );
-
-      console.log(
-        'FPS:         ',
-        VIDEO_CONFIG.frame_rate
-      );
-
-      console.log(
-        'Duration:    ',
-
-        (
-          VIDEO_CONFIG.num_frames /
-          VIDEO_CONFIG.frame_rate
-        ).toFixed(
-          2
-        ),
-
-        'seconds'
-      );
-
-      console.log(
-        'Timeout:     ',
-
-        MAX_JOB_TIME /
-          60000,
-
-        'minutes'
+          .join(', ')
       );
 
       console.log(
         'Image input:  UPLOAD / CTRL+V / URL'
-      );
-
-      console.log(
-        'Image relay: ',
-
-        process.env
-          .PUBLIC_BASE_URL
-          ? `self-hosted (${process.env.PUBLIC_BASE_URL})`
-          : process.env
-                .IMGBB_API_KEY
-            ? 'imgbb + catbox + 0x0 + tmpfiles'
-            : 'catbox + 0x0 + tmpfiles'
       );
 
       console.log(
@@ -1709,19 +1728,14 @@ if (
           .AGNES_API_KEY
       ) {
         console.warn(
-          '⚠️  AGNES_API_KEY missing — video generation kaam nahi karega.'
+          '⚠️ AGNES_API_KEY missing.'
         );
       }
 
       logPromptStartupState();
 
-      console.log(
-        '======================================'
-      );
-
-      console.log(
-        ''
-      );
+      console.log('======================================');
+      console.log('');
     }
   );
 }

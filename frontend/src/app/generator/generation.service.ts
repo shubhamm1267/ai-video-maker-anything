@@ -14,6 +14,10 @@ export type AspectRatio =
   | '9:16'
   | '16:9';
 
+export type VideoDuration =
+  | 12
+  | 18;
+
 export type GenerationStatus =
   | 'starting'
   | 'preparing_image'
@@ -62,6 +66,12 @@ export interface GenerationJob {
 
   aspectRatio?:
     AspectRatio | string;
+
+  durationSeconds?:
+    VideoDuration | number;
+
+  frameRate?:
+    number;
 }
 
 @Injectable({
@@ -84,7 +94,10 @@ export class GenerationService {
       QualityMode,
 
     aspectRatio:
-      AspectRatio
+      AspectRatio,
+
+    durationSeconds:
+      VideoDuration
   ): Observable<GenerationJob> {
     return this.http.post<GenerationJob>(
       `${this.apiBase}/generate`,
@@ -95,6 +108,8 @@ export class GenerationService {
         qualityMode,
 
         aspectRatio,
+
+        durationSeconds,
       }
     );
   }
@@ -113,7 +128,10 @@ export class GenerationService {
       QualityMode,
 
     aspectRatio:
-      AspectRatio
+      AspectRatio,
+
+    durationSeconds:
+      VideoDuration
   ): Observable<GenerationJob> {
     return this.http.post<GenerationJob>(
       `${this.apiBase}/generate-image`,
@@ -130,6 +148,8 @@ export class GenerationService {
         qualityMode,
 
         aspectRatio,
+
+        durationSeconds,
       }
     );
   }

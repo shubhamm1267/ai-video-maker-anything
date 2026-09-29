@@ -24,10 +24,25 @@ const AGNES_BASE_URL =
 
 const MODEL = 'agnes-video-v2.0';
 
+/*
+ * IMPORTANT:
+ *
+ * FPS hamesha 24 rahega.
+ *
+ * 12 sec:
+ * 289 / 24 = 12.04 sec
+ *
+ * 18 sec:
+ * 433 / 24 = 18.04 sec
+ *
+ * Dono frame counts 8n+1 rule follow karte hain.
+ */
 const VIDEO_CONFIG = {
-  num_frames: 289,
   frame_rate: 24,
+
   defaultAspectRatio: '9:16',
+
+  defaultDurationSeconds: 12,
 
   aspectRatios: {
     '9:16': {
@@ -40,6 +55,18 @@ const VIDEO_CONFIG = {
       height: 720,
     },
   },
+
+  durations: {
+    12: {
+      durationSeconds: 12,
+      num_frames: 289,
+    },
+
+    18: {
+      durationSeconds: 18,
+      num_frames: 433,
+    },
+  },
 };
 
 function getVideoDimensions(
@@ -49,6 +76,20 @@ function getVideoDimensions(
     VIDEO_CONFIG.aspectRatios[aspectRatio] ||
     VIDEO_CONFIG.aspectRatios[
       VIDEO_CONFIG.defaultAspectRatio
+    ]
+  );
+}
+
+function getDurationConfig(
+  durationSeconds = VIDEO_CONFIG.defaultDurationSeconds
+) {
+  const duration =
+    Number(durationSeconds);
+
+  return (
+    VIDEO_CONFIG.durations[duration] ||
+    VIDEO_CONFIG.durations[
+      VIDEO_CONFIG.defaultDurationSeconds
     ]
   );
 }
@@ -85,12 +126,6 @@ function extractVideoId(data) {
   );
 }
 
-/*
- * Agnes har baar same status string nahi bhejta
- * (succeed / success / finished / done...).
- * Sab ko 3 hi states me normalise karte hain,
- * warna completed video bhi "timeout" me fail hoti thi.
- */
 function normalizeStatus(
   rawStatus,
   hasVideoUrl
@@ -133,7 +168,6 @@ function normalizeStatus(
     return 'failed';
   }
 
-  // Status samajh na aaye par video URL aa gaya = ho gaya.
   if (hasVideoUrl) {
     return 'completed';
   }
@@ -157,17 +191,12 @@ function normalizeStatus(
   return 'in_progress';
 }
 
-/*
- * Agnes ka error text JSON ke andar JSON hota hai.
- * User ke liye padhne layak line nikalte hain.
- */
 function readableAgnesError(details) {
   let text =
     typeof details === 'string'
       ? details
       : JSON.stringify(details || {});
 
-  // Nested JSON ke andar ka asli message dhoondo.
   const match = text.match(
     /"message"\s*:\s*"((?:[^"\\]|\\.)*)"/
   );
@@ -199,7 +228,6 @@ function readableAgnesError(details) {
     .slice(0, 500);
 }
 
-/** Kya yeh error "image URL download nahi ho paaya" wala hai? */
 function isImageDownloadError(message) {
   return /download image url failed|download.*image.*fail|image url|connection reset by peer|network is unreachable|max retries exceeded/i.test(
     String(message || '')
@@ -209,10 +237,14 @@ function isImageDownloadError(message) {
 function createBasePayload(
   prompt,
   negativePrompt,
-  aspectRatio = VIDEO_CONFIG.defaultAspectRatio
+  aspectRatio = VIDEO_CONFIG.defaultAspectRatio,
+  durationSeconds = VIDEO_CONFIG.defaultDurationSeconds
 ) {
   const dimensions =
     getVideoDimensions(aspectRatio);
+
+  const durationConfig =
+    getDurationConfig(durationSeconds);
 
   return {
     model: MODEL,
@@ -224,7 +256,7 @@ function createBasePayload(
     height: dimensions.height,
 
     num_frames:
-      VIDEO_CONFIG.num_frames,
+      durationConfig.num_frames,
 
     frame_rate:
       VIDEO_CONFIG.frame_rate,
@@ -268,6 +300,7 @@ async function createVideoTask({
   qualityMode = 'high',
   hasReferenceImage = false,
   aspectRatio = VIDEO_CONFIG.defaultAspectRatio,
+  durationSeconds = VIDEO_CONFIG.defaultDurationSeconds,
 }) {
   const compiled =
     compileVideoPrompt({
@@ -299,11 +332,24 @@ async function createVideoTask({
     createBasePayload(
       finalPrompt,
       compiled.negativePrompt,
-      aspectRatio
+      aspectRatio,
+      durationSeconds
     );
 
   console.log(
-    'Creating Agnes text-to-video task...'
+    'Creating Agnes text-to-video task...',
+    {
+      aspectRatio,
+      durationSeconds,
+      num_frames:
+        payload.num_frames,
+      frame_rate:
+        payload.frame_rate,
+      width:
+        payload.width,
+      height:
+        payload.height,
+    }
   );
 
   try {
@@ -378,6 +424,17 @@ async function createVideoTask({
 
       negativePrompt:
         compiled.negativePrompt,
+
+      durationSeconds:
+        Number(
+          durationSeconds
+        ),
+
+      numFrames:
+        payload.num_frames,
+
+      frameRate:
+        payload.frame_rate,
     };
   } catch (error) {
     const details =
@@ -404,6 +461,7 @@ async function createImageVideoTask({
   imageUrl,
   qualityMode = 'high',
   aspectRatio = VIDEO_CONFIG.defaultAspectRatio,
+  durationSeconds = VIDEO_CONFIG.defaultDurationSeconds,
 }) {
   const validImageUrl =
     validateImageReference(
@@ -448,19 +506,28 @@ async function createImageVideoTask({
   const payload =
     createBasePayload(
       finalPrompt,
-
       compiled.negativePrompt,
-
-      aspectRatio
+      aspectRatio,
+      durationSeconds
     );
 
-  // Agnes v2.0 expects singular "image"
-  // containing a public image URL.
   payload.image =
     validImageUrl;
 
   console.log(
-    'Creating Agnes image-to-video task...'
+    'Creating Agnes image-to-video task...',
+    {
+      aspectRatio,
+      durationSeconds,
+      num_frames:
+        payload.num_frames,
+      frame_rate:
+        payload.frame_rate,
+      width:
+        payload.width,
+      height:
+        payload.height,
+    }
   );
 
   try {
@@ -539,6 +606,17 @@ async function createImageVideoTask({
 
       negativePrompt:
         compiled.negativePrompt,
+
+      durationSeconds:
+        Number(
+          durationSeconds
+        ),
+
+      numFrames:
+        payload.num_frames,
+
+      frameRate:
+        payload.frame_rate,
     };
   } catch (error) {
     const details =
@@ -565,6 +643,7 @@ async function createRetryTask({
   attempt,
   qualityMode = 'high',
   aspectRatio = VIDEO_CONFIG.defaultAspectRatio,
+  durationSeconds = VIDEO_CONFIG.defaultDurationSeconds,
 }) {
   const retryPrompt =
     buildRetryPrompt(
@@ -582,6 +661,8 @@ async function createRetryTask({
       false,
 
     aspectRatio,
+
+    durationSeconds,
   });
 }
 
@@ -693,4 +774,6 @@ module.exports = {
   VIDEO_CONFIG,
 
   getVideoDimensions,
+
+  getDurationConfig,
 };
